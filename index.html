@@ -2476,13 +2476,13 @@ const GROUPS = {
         clues: ['臺南市的資優 QA：資優生在各社會階層、各種族都可能出現。', '高雄市的簡章：家庭需要協助的學生，報名時可以另外附上自己擅長的表現，由委員會一起判斷。'],
         sel: '如果你是小凱的朋友，你會怎麼跟他說？',
         src: [5, 1, 19] },
-      { id: 'p4', name: '小芸', avatar: '👧🏻', note: '二年級，班上有資優生',
-        a1: '班上有資優生比較好玩，他會講新東西給我們聽！',
-        a2: '我想去看看他們到底在上什麼。',
-        fq: '如果班上沒有資優生，會怎麼樣？',
-        f: '那就會變得比較沒那麼有趣吧。',
-        clues: ['花蓮縣宜昌國小的研究中，一位普通班學生受訪時說：資優生會講一些不同的東西，讓我們學到新的知識。'],
-        src: [7] }
+      { id: 'p4', name: '小芸', avatar: '👧🏻', note: '二年級，路過資優班教室',
+        a1: '我有經過資優班教室，看到裡面的人在用電腦，好像很好玩！',
+        a2: '我想去看看他們到底在做什麼。',
+        fq: '你看到他們在電腦上做什麼？',
+        f: '好像在讓畫面上的角色動來動去，我也想學！',
+        clues: ['國小資優班的課程有獨立研究、主題探究、創造思考、情意等特殊需求課程，也會有數理、語文的加深加廣。', '莒光國小資優班四年級有「程式小創客」課程，用 Scratch 學程式設計。'],
+        src: [3] }
     ]
   },
   3: {
@@ -2589,6 +2589,7 @@ const G = params.get('g');
 const app = document.getElementById('app');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GAME_MIN = 8;
+const TEACHER_PIN = '1940'; // 教師清除密碼，要更換改這裡
 
 // ===== 記憶積木：每台裝置各自存，四組互不干擾 =====
 const store = {
@@ -2622,7 +2623,7 @@ function teacherApp(){
         <p>2. 四組訪問的對象不同：第1組家長、第2組低年級學生、第3組中高年級學生、第4組社會人士。</p>
         <p>3. 紀錄只存在各組自己的平板，各組同時進行互不干擾。重新整理頁面不會清掉紀錄。</p>
         <p>4. 採訪 8 分鐘後進入「歸納牆」，各組把便利貼分堆、自己取名，再寫結論。</p>
-        <p>5. 下一個班級要用時，在各組平板的「結果」頁最下方按兩次「清除本組紀錄」。</p>
+        <p>5. 下一個班級要用時，在各組平板「結果」頁最下方點「🔒 教師清除紀錄」，輸入教師密碼才能清除。</p>
       </div>
     </div>`;
   const box = document.getElementById('qrs');
@@ -2900,15 +2901,24 @@ function groupApp(g){
         <textarea id="concl" placeholder="我們發現……">${esc(S.concl)}</textarea>
       </div>
       <div class="foot"><button class="btn ghost" id="toW">← 回歸納牆</button><button class="btn ghost" id="toS">📚 資料出處</button></div>
-      <div class="foot"><span></span><button class="linkbtn" id="clr">清除本組紀錄（換下一班時使用）</button></div>`);
+      <div class="foot"><span></span><button class="linkbtn" id="clr">🔒 教師清除紀錄</button></div>`);
     const c = document.getElementById('concl'); c.oninput = () => { S.concl = c.value; save(); };
     document.getElementById('toW').onclick = () => go('wall');
     document.getElementById('toS').onclick = () => go('sources');
-    const clr = document.getElementById('clr'); let armed = false;
-    clr.onclick = () => {
-      if (!armed){ armed = true; clr.textContent = '確定要清除？再按一次'; clr.style.color = 'var(--warn)'; setTimeout(() => { armed = false; clr.textContent = '清除本組紀錄（換下一班時使用）'; clr.style.color = ''; }, 4000); return; }
-      store.del(KEY); S = blank(); shownUp = false; render();
-    };
+    document.getElementById('clr').onclick = askPin;
+  }
+  function askPin(){
+    const o = document.createElement('div'); o.className = 'overlay';
+    o.innerHTML = `<div class="box"><div class="big">🔒</div><h3>教師清除紀錄</h3><p class="hint">清除後這台平板的${esc(grp.title)}紀錄會全部刪除。</p>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="教師密碼" style="font:inherit;font-size:20px;padding:8px 12px;border:2px solid var(--line);border-radius:10px;width:170px;text-align:center">
+      <p id="pinmsg" class="hint" style="color:var(--warn);min-height:1.4em"></p>
+      <div class="row"><button class="btn ghost small" id="pc">取消</button><button class="btn small" id="pok">清除</button></div></div>`;
+    document.body.appendChild(o);
+    const inp = o.querySelector('#pin'); inp.focus();
+    o.querySelector('#pc').onclick = () => o.remove();
+    const doit = () => { if (inp.value === TEACHER_PIN){ o.remove(); store.del(KEY); S = blank(); shownUp = false; render(); }
+      else { o.querySelector('#pinmsg').textContent = '密碼不對，請找老師。'; inp.value = ''; } };
+    o.querySelector('#pok').onclick = doit; inp.onkeydown = e => { if (e.key === 'Enter') doit(); };
   }
 
   // ---- 出處 ----
