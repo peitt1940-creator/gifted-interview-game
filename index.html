@@ -2771,7 +2771,7 @@ function teacherApp(){
     draw();
   }
   function newSession(){
-    const id = new Date().toISOString().slice(5,10).replace('-','') + '-' + Math.random().toString(36).slice(2, 6);
+    const n = new Date(), id = String(n.getMonth()+1).padStart(2,'0') + String(n.getDate()).padStart(2,'0') + '-' + Math.random().toString(36).slice(2, 6);
     cloud.createSession(id).then(() => cloud.setCurrent(id));
   }
   function confirmBox(title, msg, okText, fn){
