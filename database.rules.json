@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "current": {
+      ".read": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true",
+      ".write": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true"
+    },
+    "sessions": {
+      ".read": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true",
+      ".write": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true",
+      "$sid": {
+        "meta": { ".read": "auth != null" },
+        "publish": { ".read": "auth != null" },
+        "groups": {
+          "$g": {
+            ".read": "auth != null && root.child('sessions/' + $sid + '/publish/' + $g).val() === true",
+            ".write": "auth != null && root.child('sessions/' + $sid + '/meta').exists() && newData.exists() && ($g === '1' || $g === '2' || $g === '3' || $g === '4')",
+            ".validate": "newData.hasChildren(['data', 'updatedAt']) && newData.child('data').isString() && newData.child('data').val().length < 40000 && newData.child('updatedAt').isNumber()"
+          }
+        }
+      }
+    }
+  }
+}

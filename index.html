@@ -112,6 +112,29 @@ table.rec th{color:var(--mute);font-weight:700;font-size:13px}
 .flip{background:none;color:var(--teal-d);font-size:13px;font-weight:700;padding:4px 0 0}
 .plist li{margin:6px 0;line-height:1.6}
 .box.clue ul{padding-left:20px}
+
+.tbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.bigclock.small{font-size:44px;margin:0}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.gcard{background:#fff;border:2px solid var(--line);border-radius:16px;padding:12px}
+.gcard.pub{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-l)}
+.gh{display:flex;justify-content:space-between;align-items:baseline}.gh .g{font-size:20px;font-weight:800;color:var(--navy)}
+.gqr{text-align:center}.gqr svg{width:100%;max-width:170px;height:auto;display:block;margin:6px auto}.gqr a{font-size:12px;color:var(--teal-d)}
+.gst{font-weight:700;margin:6px 0}
+.gcard .bar .lb{width:40px}
+.gnum{display:flex;justify-content:space-between;font-size:14px;margin:6px 0 10px;color:var(--ink)}
+.sw{display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
+.sw input{display:none}.sw span{width:44px;height:26px;border-radius:13px;background:#cbd5d2;position:relative;transition:.2s}
+.sw span::after{content:'';position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+span{background:var(--teal)}.sw input:checked+span::after{left:21px}
+.compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.ccol{background:#fafcfb;border:1px solid var(--line);border-radius:14px;padding:10px}
+.wpile{background:var(--teal-l);border-radius:12px;padding:8px 10px;margin:8px 0}
+.wph{font-weight:800;color:var(--navy);display:flex;justify-content:space-between;align-items:center}
+.wpile .plist{margin:6px 0 0;padding-left:18px;font-size:15px}
+mark{background:#ffe066}
+.wconcl{background:#fff7e6;border-radius:10px;padding:8px 10px;margin-top:8px}
+.sync-err{background:var(--warn)!important}
 </style>
 </head>
 <body>
@@ -2583,6 +2606,71 @@ const SOURCES = {
 
 </script>
 <script>
+// ===== 連線積木：Firebase（?fake=1 時改用本機模擬，供測試） =====
+const FB_CONFIG = {
+  apiKey: 'AIzaSyDMj042zPvy-EyzsbChDrmJp6HIpA-QODA',
+  authDomain: 'gifted-interview-game.firebaseapp.com',
+  databaseURL: 'https://gifted-interview-game-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'gifted-interview-game',
+  appId: '1:725778566175:web:647f85bf14e2e9c912d92a',
+  messagingSenderId: '725778566175'
+};
+const TEACHER_EMAIL = 'peitt1940@gmail.com';
+const FB_VER = '10.14.1';
+
+async function cloudInit(){
+  if (new URLSearchParams(location.search).get('fake') === '1') return fakeCloud();
+  const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+  const [{ initializeApp }, A, D] = await Promise.all([
+    import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-database.js')
+  ]);
+  const app = initializeApp(FB_CONFIG);
+  const auth = A.getAuth(app), db = D.getDatabase(app);
+  return {
+    onAuth: cb => A.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid, email: u.email || '', anon: u.isAnonymous } : null)),
+    anon: () => A.signInAnonymously(auth),
+    google: () => A.signInWithPopup(auth, new A.GoogleAuthProvider()),
+    signOut: () => A.signOut(auth),
+    set: (p, v) => D.set(D.ref(db, p), v),
+    update: (p, v) => D.update(D.ref(db, p), v),
+    remove: p => D.remove(D.ref(db, p)),
+    get: p => D.get(D.ref(db, p)).then(s => s.val()),
+    on: (p, cb) => D.onValue(D.ref(db, p), s => cb(s.val()), e => cb(null, e)),
+    onConn: cb => D.onValue(D.ref(db, '.info/connected'), s => cb(!!s.val()))
+  };
+}
+
+// 本機模擬雲端：同一瀏覽器的分頁共用 localStorage，用 storage 事件同步
+function fakeCloud(){
+  const K = 'fake-db';
+  const read = () => { try { return JSON.parse(localStorage.getItem(K)) || {}; } catch(e){ return {}; } };
+  const at = (o, p) => p.split('/').filter(Boolean).reduce((x, k) => x == null ? null : x[k], o) ?? null;
+  const put = (o, p, v) => { const ks = p.split('/').filter(Boolean); let x = o;
+    ks.slice(0, -1).forEach(k => { if (typeof x[k] !== 'object' || !x[k]) x[k] = {}; x = x[k]; });
+    if (v === null) delete x[ks[ks.length-1]]; else x[ks[ks.length-1]] = v; };
+  const subs = [];
+  const fire = () => { const d = read(); subs.forEach(s => s.cb(JSON.parse(JSON.stringify(at(d, s.p))))); };
+  window.addEventListener('storage', e => { if (e.key === K) fire(); });
+  const write = f => { const d = read(); f(d); localStorage.setItem(K, JSON.stringify(d)); fire(); return Promise.resolve(); };
+  let user = null; const authSubs = [];
+  const setUser = u => { user = u; sessionStorage.setItem('fake-user', JSON.stringify(u)); authSubs.forEach(cb => cb(u)); };
+  try { user = JSON.parse(sessionStorage.getItem('fake-user')); } catch(e){}
+  return {
+    onAuth: cb => { authSubs.push(cb); setTimeout(() => cb(user), 0); },
+    anon: () => { setUser({ uid: 'anon-' + Math.random().toString(36).slice(2, 8), email: '', anon: true }); return Promise.resolve(); },
+    google: () => { setUser({ uid: 'teacher', email: TEACHER_EMAIL, anon: false }); return Promise.resolve(); },
+    signOut: () => { setUser(null); return Promise.resolve(); },
+    set: (p, v) => write(d => put(d, p, v)),
+    update: (p, v) => write(d => Object.entries(v).forEach(([k, x]) => put(d, p + '/' + k, x))),
+    remove: p => write(d => put(d, p, null)),
+    get: p => Promise.resolve(at(read(), p)),
+    on: (p, cb) => { const s = { p, cb }; subs.push(s); setTimeout(() => cb(at(read(), p)), 0); return () => subs.splice(subs.indexOf(s), 1); },
+    onConn: cb => setTimeout(() => cb(true), 0)
+  };
+}
+
+</script>
+<script>
 // ===== 入口積木：依網址參數決定教師頁或組別頁 =====
 const params = new URLSearchParams(location.search);
 const G = params.get('g');
@@ -2601,63 +2689,182 @@ function fmt(ms){ ms = Math.max(0, ms); const s = Math.ceil(ms/1000); return Str
 
 if (G && GROUPS[G]) groupApp(G); else teacherApp();
 
-// ================= 教師頁 =================
+// ================= 教師頁（即時看板） =================
+function parseGroup(raw){ try { return raw && raw.data ? JSON.parse(raw.data) : null; } catch(e){ return null; } }
+function groupStats(g, st){
+  const grp = GROUPS[g];
+  if (!st) return { done: 0, total: grp.people.length, notes: 0, piles: 0, view: '', concl: '' };
+  const keys = p => p.f ? ['a1','a2','f'] : ['a1','a2'];
+  const has = (pid, k) => (st.notes || []).some(n => n.pid === pid && n.k === k);
+  return { done: grp.people.filter(p => keys(p).every(k => has(p.id, k))).length, total: grp.people.length,
+    notes: (st.notes || []).length, piles: (st.piles || []).length, view: st.view || '', concl: st.concl || '', started: !!st.startAt };
+}
+const VIEW_NAME = { intro:'還沒開始', scene:'採訪中', person:'採訪中', wall:'歸納牆', results:'寫結論', sources:'看出處', others:'看其他組' };
+function wallHtml(g, st){
+  const grp = GROUPS[g]; if (!st) return '<p class="muted">還沒有資料</p>';
+  const P = id => grp.people.find(p => p.id === id);
+  const noteTxt = n => { const p = P(n.pid); if (!p) return ''; const t = [...p[n.k]];
+    return `<li>${p.avatar} <b>${esc(p.name)}</b>：${t.map((c,i) => (n.marks||[]).some(([a,b]) => i>=a && i<=b) ? `<mark>${esc(c)}</mark>` : esc(c)).join('')}</li>`; };
+  const piles = (st.piles || []).map(pl => ({ ...pl, ns: (st.notes || []).filter(n => n.pile === pl.id) })).sort((a,b) => b.ns.length - a.ns.length);
+  const tray = (st.notes || []).filter(n => !n.pile || !(st.piles || []).find(x => x.id === n.pile));
+  return (piles.map(pl => `<div class="wpile"><div class="wph">${esc(pl.name || '（還沒取名）')}<span class="pc">${pl.ns.length}</span></div><ul class="plist">${pl.ns.map(noteTxt).join('')}</ul></div>`).join('') || '<p class="muted">還沒有分堆</p>')
+    + (tray.length ? `<p class="hint">還沒分堆：${tray.length} 張</p>` : '')
+    + (st.concl ? `<div class="wconcl"><b>💡 結論：</b>${esc(st.concl)}</div>` : '');
+}
+
 function teacherApp(){
   const base = location.href.split('?')[0].split('#')[0];
+  const fake = params.get('fake') === '1' ? '&fake=1' : '';
+  let cloud = null, user = null, sid = null, groups = {}, publish = {}, unsub = [], showQR = true, timerT = null;
   let t = store.get('zyp-teacher', { running:false, endAt:0, left: GAME_MIN*60000 });
-  app.innerHTML = `
-    <div class="top"><h1>資優班街頭採訪隊｜教師頁</h1><span class="muted" style="color:#cfe0f2">各組掃自己的 QR code</span></div>
-    <div class="wrap">
-      <div class="card">
-        <div class="bigclock" id="tclock">08:00</div>
-        <div class="row">
-          <button class="btn" id="tstart">開始計時</button>
-          <button class="btn ghost" id="treset">重設 8 分鐘</button>
-        </div>
-        <p class="hint" style="text-align:center;margin-top:10px">各組平板有自己的 8 分鐘採訪倒數（按下「出發採訪」才起算），這裡的計時給全班看。</p>
+  app.innerHTML = `<div class="top"><h1>資優班街頭採訪隊｜教師看板</h1><span id="who" class="badge">連線中…</span></div><div class="wrap" id="tw" style="max-width:1240px"><div class="card"><p>連線中，請稍候…</p></div></div>`;
+  const tw = document.getElementById('tw');
+
+  cloudInit().then(c => { cloud = c; c.onAuth(u => { user = u; route(); }); })
+    .catch(e => { tw.innerHTML = `<div class="card"><h2>連不上雲端</h2><p>請確認網路後重新整理。</p><p class="hint">${esc(e.message || e)}</p></div>`; });
+
+  function clearSubs(){ unsub.forEach(f => { try { f(); } catch(e){} }); unsub = []; }
+  function route(){
+    clearSubs();
+    const who = document.getElementById('who');
+    if (!user || user.anon){
+      who.textContent = '未登入';
+      tw.innerHTML = `<div class="card" style="text-align:center"><div style="font-size:52px">👩‍🏫</div><h2>教師登入</h2>
+        <p>用教師的 Google 帳號登入，才能看各組進度、公布歸納牆。</p><button class="btn" id="login">用 Google 登入</button>
+        <p class="hint" id="lmsg"></p></div>`;
+      document.getElementById('login').onclick = () => cloud.google().catch(e => { document.getElementById('lmsg').textContent = '登入失敗：' + (e.code || e.message); });
+      return;
+    }
+    if (user.email !== TEACHER_EMAIL){
+      who.textContent = user.email;
+      tw.innerHTML = `<div class="card"><h2>這個帳號沒有教師權限</h2><p>${esc(user.email)} 不是教師帳號。</p><button class="btn ghost" id="lo">登出</button></div>`;
+      document.getElementById('lo').onclick = () => cloud.signOut();
+      return;
+    }
+    who.textContent = '👩‍🏫 ' + user.email;
+    unsub.push(cloud.on('current', v => { sid = v || null; subSession(); }));
+  }
+  function subSession(){
+    unsub.slice(1).forEach(f => { try { f(); } catch(e){} }); unsub = unsub.slice(0, 1);
+    groups = {}; publish = {};
+    if (!sid){ draw(); return; }
+    unsub.push(cloud.on(`sessions/${sid}/groups`, v => { groups = {}; Object.entries(v || {}).forEach(([g, raw]) => groups[g] = { st: parseGroup(raw), at: raw && raw.updatedAt }); draw(); }));
+    unsub.push(cloud.on(`sessions/${sid}/publish`, v => { publish = v || {}; draw(); }));
+    draw();
+  }
+  function newSession(){
+    const id = new Date().toISOString().slice(5,10).replace('-','') + '-' + Math.random().toString(36).slice(2, 6);
+    cloud.set(`sessions/${id}/meta`, { createdAt: Date.now() }).then(() => cloud.set('current', id));
+  }
+  function confirmBox(title, msg, okText, fn){
+    const o = document.createElement('div'); o.className = 'overlay';
+    o.innerHTML = `<div class="box"><h3>${title}</h3><p>${msg}</p><div class="row"><button class="btn ghost small" id="cc">取消</button><button class="btn small" id="co" style="background:var(--warn)">${okText}</button></div></div>`;
+    document.body.appendChild(o); o.querySelector('#cc').onclick = () => o.remove(); o.querySelector('#co').onclick = () => { o.remove(); fn(); };
+  }
+  function draw(){
+    if (!sid){
+      tw.innerHTML = `<div class="card" style="text-align:center"><h2>還沒有開始的課堂</h2><p>按下面的按鈕開一堂新課，就會產生這堂課專用的四組 QR code。</p><button class="btn" id="ns">開新的一堂課</button></div>
+        <div class="foot"><span></span><button class="linkbtn" id="lo">登出</button></div>`;
+      document.getElementById('ns').onclick = newSession; document.getElementById('lo').onclick = () => cloud.signOut();
+      return;
+    }
+    const keys = Object.keys(GROUPS);
+    const pub = keys.filter(g => publish[g]);
+    tw.innerHTML = `
+      <div class="card tbar">
+        <div><div class="muted">這堂課的代碼</div><div style="font-size:24px;font-weight:800;color:var(--navy)">${esc(sid)}</div></div>
+        <div class="bigclock small" id="tclock">08:00</div>
+        <div class="row"><button class="btn small" id="tstart">開始計時</button><button class="btn ghost small" id="treset">重設</button></div>
       </div>
-      <div class="qrgrid" id="qrs"></div>
+      <div class="row" style="justify-content:space-between;margin:6px 0"><h2 style="margin:0">📡 各組進度</h2><button class="btn ghost small" id="tq">${showQR ? '隱藏 QR code' : '顯示 QR code'}</button></div>
+      <div class="board">
+        ${keys.map(g => { const st = groups[g] && groups[g].st, s = groupStats(g, st), at = groups[g] && groups[g].at;
+          const url = base + '?g=' + g + '&s=' + encodeURIComponent(sid) + fake;
+          let qrSvg = ''; if (showQR){ const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); qrSvg = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true }); }
+          return `<div class="gcard ${publish[g]?'pub':''}" data-g="${g}">
+            <div class="gh"><span class="g">第${g}組</span><span class="muted">${esc(GROUPS[g].who)}</span></div>
+            ${showQR ? `<div class="gqr">${qrSvg}<a href="${esc(url)}" target="_blank">開啟第${g}組</a></div>` : ''}
+            <div class="gst">${st ? esc(VIEW_NAME[s.view] || '進行中') : '等待掃描'}${at ? `<span class="hint">　更新 ${new Date(at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>` : ''}</div>
+            <div class="bar"><div class="lb">採訪</div><div class="tr"><div class="fl" style="width:${s.done/s.total*100}%;background:var(--teal)"></div></div><div class="n">${s.done}/${s.total}</div></div>
+            <div class="gnum"><span>📒 ${s.notes} 張</span><span>🧩 ${s.piles} 堆</span><span>${s.concl ? '💡 已寫結論' : '💡 —'}</span></div>
+            <div class="row" style="justify-content:space-between">
+              <label class="sw"><input type="checkbox" class="pubt" data-g="${g}" ${publish[g]?'checked':''}><span></span>公布歸納牆</label>
+              <button class="btn ghost small look" data-g="${g}">放大看</button></div>
+          </div>`; }).join('')}
+      </div>
+      <div class="card">
+        <h2>👀 已公布的歸納牆（${pub.length}）</h2>
+        <p class="hint">公布後，這一組的歸納牆會出現在這裡，也會出現在各組平板的「看其他組」。</p>
+        <div class="compare">${pub.map(g => `<div class="ccol"><h3>第${g}組｜${esc(GROUPS[g].who)}</h3>${wallHtml(g, groups[g] && groups[g].st)}</div>`).join('') || '<p class="muted">還沒有公布任何一組。</p>'}</div>
+      </div>
       <div class="card">
         <h3>使用方式</h3>
-        <p>1. 投影這一頁，每組用一台平板掃自己那組的 QR code。</p>
-        <p>2. 四組訪問的對象不同：第1組家長、第2組低年級學生、第3組中高年級學生、第4組社會人士。</p>
-        <p>3. 紀錄只存在各組自己的平板，各組同時進行互不干擾。重新整理頁面不會清掉紀錄。</p>
-        <p>4. 採訪 8 分鐘後進入「歸納牆」，各組把便利貼分堆、自己取名，再寫結論。</p>
-        <p>5. 下一個班級要用時，在各組平板「結果」頁最下方點「🔒 教師清除紀錄」，輸入教師密碼才能清除。</p>
+        <p>1. 投影這一頁，每組用一台平板掃自己那組的 QR code。QR code 帶著這堂課的代碼，換一堂課要按「開新的一堂課」。</p>
+        <p>2. 各組平板有自己的 ${GAME_MIN} 分鐘採訪倒數，這裡的計時給全班看。</p>
+        <p>3. 想討論哪一組，就打開那一組的「公布歸納牆」；關掉就會從學生平板上收回。</p>
+        <p>4. 下課後按「清除這堂課」，雲端上這堂課的資料會全部刪除。</p>
       </div>
-    </div>`;
-  const box = document.getElementById('qrs');
-  Object.keys(GROUPS).forEach(k => {
-    const url = base + '?g=' + k;
-    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
-    const d = document.createElement('div'); d.className = 'qrcard';
-    d.innerHTML = `<div class="g">第${k}組</div><div class="muted">訪問：${esc(GROUPS[k].who)}</div>${qr.createSvgTag({cellSize:6, margin:2, scalable:true})}<a href="${esc(url)}" target="_blank">${esc(url)}</a>`;
-    box.appendChild(d);
-  });
-  const clock = document.getElementById('tclock'), bs = document.getElementById('tstart');
-  function draw(){
-    const left = t.running ? t.endAt - Date.now() : t.left;
-    clock.textContent = fmt(left);
-    clock.style.color = left <= 60000 ? 'var(--warn)' : 'var(--navy)';
-    bs.textContent = t.running ? '暫停' : (t.left < GAME_MIN*60000 ? '繼續' : '開始計時');
-    if (t.running && left <= 0){ t = { running:false, endAt:0, left:0 }; store.set('zyp-teacher', t); }
+      <div class="foot"><button class="btn ghost small" id="ns">開新的一堂課</button><button class="btn small" id="del" style="background:var(--warn)">清除這堂課</button></div>
+      <div class="foot"><span></span><button class="linkbtn" id="lo">登出</button></div>`;
+    tw.querySelectorAll('.pubt').forEach(c => c.onchange = () => cloud.set(`sessions/${sid}/publish/${c.dataset.g}`, c.checked ? true : null));
+    tw.querySelectorAll('.look').forEach(b => b.onclick = () => look(b.dataset.g));
+    document.getElementById('tq').onclick = () => { showQR = !showQR; draw(); };
+    document.getElementById('ns').onclick = () => confirmBox('開新的一堂課？', '會產生新的 QR code，各組平板要重新掃描。這堂課的資料會留著，要刪除請按「清除這堂課」。', '開新課', newSession);
+    document.getElementById('del').onclick = () => confirmBox('清除這堂課？', `代碼 ${esc(sid)} 的四組紀錄會從雲端全部刪除，無法復原。`, '確定清除', () => cloud.remove(`sessions/${sid}`).then(() => cloud.set('current', null)));
+    document.getElementById('lo').onclick = () => cloud.signOut();
+    timerUI();
   }
-  bs.onclick = () => {
-    if (t.running){ t = { running:false, endAt:0, left: Math.max(0, t.endAt - Date.now()) }; }
-    else if (t.left > 0){ t = { running:true, endAt: Date.now() + t.left, left: t.left }; }
-    store.set('zyp-teacher', t); draw();
-  };
-  document.getElementById('treset').onclick = () => { t = { running:false, endAt:0, left: GAME_MIN*60000 }; store.set('zyp-teacher', t); draw(); };
-  draw(); setInterval(draw, 250);
+  function look(g){
+    const o = document.createElement('div'); o.className = 'overlay';
+    o.innerHTML = `<div class="box" style="max-width:900px;width:100%;max-height:90vh;overflow:auto;text-align:left"><div class="row" style="justify-content:space-between"><h2 style="margin:0">第${g}組｜${esc(GROUPS[g].who)}的歸納牆</h2><button class="btn ghost small" id="cx">關閉</button></div>${wallHtml(g, groups[g] && groups[g].st)}</div>`;
+    document.body.appendChild(o); o.querySelector('#cx').onclick = () => o.remove(); o.onclick = e => { if (e.target === o) o.remove(); };
+  }
+  function timerUI(){
+    const clock = document.getElementById('tclock'), bs = document.getElementById('tstart'); if (!clock) return;
+    const paint = () => { const left = t.running ? t.endAt - Date.now() : t.left; clock.textContent = fmt(left);
+      clock.style.color = left <= 60000 ? 'var(--warn)' : 'var(--navy)';
+      bs.textContent = t.running ? '暫停' : (t.left < GAME_MIN*60000 ? '繼續' : '開始計時');
+      if (t.running && left <= 0){ t = { running:false, endAt:0, left:0 }; store.set('zyp-teacher', t); } };
+    bs.onclick = () => { if (t.running) t = { running:false, endAt:0, left: Math.max(0, t.endAt - Date.now()) }; else if (t.left > 0) t = { running:true, endAt: Date.now() + t.left, left: t.left };
+      store.set('zyp-teacher', t); paint(); };
+    document.getElementById('treset').onclick = () => { t = { running:false, endAt:0, left: GAME_MIN*60000 }; store.set('zyp-teacher', t); paint(); };
+    paint(); clearInterval(timerT); timerT = setInterval(() => { if (document.getElementById('tclock')) paint(); }, 250);
+  }
 }
 
 // ================= 組別頁 =================
 function groupApp(g){
   const grp = GROUPS[g];
-  const KEY = 'zyp2-g' + g;
+  const SID = params.get('s');
+  const KEY = SID ? 'zyp4-' + SID + '-g' + g : 'zyp2-g' + g;
+  let cloud = null, cloudOk = false, pushT = null, syncState = SID ? 'wait' : '', pub = {}, others = {}, otherSubs = {};
   const blank = () => ({ startAt:0, endAt:0, asked:{}, notes:[], piles:[], concl:'', view:'intro', pid:null, seq:0 });
   let S = store.get(KEY, blank());
-  const save = () => store.set(KEY, S);
+  const save = () => { store.set(KEY, S); schedulePush(); };
+  function schedulePush(){ if (!SID) return; syncState = 'wait'; paintSync(); clearTimeout(pushT); pushT = setTimeout(pushNow, 600); }
+  function pushNow(){
+    if (!cloudOk) return;
+    const slim = { startAt: S.startAt, endAt: S.endAt, notes: S.notes, piles: S.piles, concl: S.concl, sel: S.sel || {}, view: S.view };
+    cloud.set(`sessions/${SID}/groups/${g}`, { data: JSON.stringify(slim), updatedAt: Date.now() })
+      .then(() => { syncState = 'ok'; paintSync(); }).catch(() => { syncState = 'err'; paintSync(); });
+  }
+  function paintSync(){ const el = document.getElementById('sync'); if (!el) return;
+    el.textContent = { ok:'☁️ 已同步', wait:'⏳ 同步中', err:'⚠️ 未同步' }[syncState] || ''; el.className = 'badge sync-' + syncState; }
+  function othersList(){ return Object.keys(pub).filter(k => pub[k] && k !== String(g) && GROUPS[k]); }
+  if (SID){
+    cloudInit().then(c => { cloud = c;
+      c.onAuth(u => { if (!u){ c.anon().catch(() => { syncState = 'err'; paintSync(); }); return; }
+        if (cloudOk) return; cloudOk = true; pushNow();
+        c.on(`sessions/${SID}/publish`, v => { const before = othersList().length; pub = v || {};
+          Object.keys(otherSubs).forEach(k => { if (!pub[k]){ otherSubs[k](); delete otherSubs[k]; delete others[k]; } });
+          othersList().forEach(k => { if (!otherSubs[k]) otherSubs[k] = c.on(`sessions/${SID}/groups/${k}`, raw => { others[k] = parseGroup(raw); if (S.view === 'others') render(); }); });
+          if (othersList().length > before) toast('👀 老師公布了其他組的歸納牆');
+          paintOthersBtn(); if (S.view === 'others') render(); });
+      });
+    }).catch(() => { syncState = 'err'; paintSync(); });
+  }
+  function toast(msg){ const t = document.createElement('div'); t.className = 'flynote'; t.style.animationDuration = '2.6s'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+  function paintOthersBtn(){ document.querySelectorAll('.othersbtn').forEach(b => { const n = othersList().length; b.style.display = n ? '' : 'none'; b.textContent = `👀 看其他組（${n}）`; }); }
   const timeUp = () => S.endAt && Date.now() >= S.endAt;
   const P = id => grp.people.find(p => p.id === id);
   const keysOf = p => p.f ? ['a1','a2','f'] : ['a1','a2'];
@@ -2668,9 +2875,11 @@ function groupApp(g){
 
   function shell(inner, showClock = true){
     app.innerHTML = `<div class="top"><h1>${esc(grp.title)}</h1><div style="display:flex;gap:8px;align-items:center">
+      ${SID ? '<span class="badge" id="sync"></span>' : ''}
       ${S.startAt ? `<span class="badge">📒 ${S.notes.length} 張</span>` : ''}
       ${showClock && S.startAt ? '<span class="clock" id="clk">--:--</span>' : ''}</div></div><div class="wrap">${inner}</div>`;
-    tick();
+    tick(); paintSync(); paintOthersBtn();
+    app.querySelectorAll('.othersbtn').forEach(b => b.onclick = () => go('others'));
   }
   function tick(){
     const c = document.getElementById('clk');
@@ -2684,7 +2893,14 @@ function groupApp(g){
     }
   }
   function go(view, pid){ S.view = view; if (pid !== undefined) S.pid = pid; save(); typing = null; pending = null; selNote = null; render(); window.scrollTo(0,0); }
-  function render(){ const v = { intro, scene, person, wall, results, sources }; (v[S.view] || intro)(); }
+  function render(){ const v = { intro, scene, person, wall, results, sources, others: othersView }; (v[S.view] || intro)(); }
+  function othersView(){
+    const ks = othersList();
+    shell(`<div class="card"><h2>👀 其他組的歸納牆</h2><p class="muted">老師公布了 ${ks.length} 組。看看別組怎麼分堆、怎麼取名字。</p></div>
+      ${ks.map(k => `<div class="card"><h3>第${k}組｜訪問${esc(GROUPS[k].who)}</h3>${wallHtml(k, others[k])}</div>`).join('') || '<div class="card"><p class="muted">目前沒有公布的組別。</p></div>'}
+      <div class="foot"><button class="btn ghost" id="bk">← 回歸納牆</button><button class="btn ghost" id="bk2">我們的結果</button></div>`);
+    document.getElementById('bk').onclick = () => go('wall'); document.getElementById('bk2').onclick = () => go('results');
+  }
 
   // ---- 開場 ----
   function intro(){
@@ -2829,7 +3045,8 @@ function groupApp(g){
       <div class="foot">
         ${timeUp() ? '<span></span>' : '<button class="btn ghost" id="toScene">← 回去採訪</button>'}
         <button class="btn" id="toR">完成歸納，看結果</button>
-      </div>`);
+      </div>
+      ${SID ? '<div class="row" style="margin-top:10px"><button class="btn ghost othersbtn" style="display:none">👀 看其他組</button></div>' : ''}`);
     document.getElementById('add').onclick = () => { S.seq++; S.piles.push({ id: 'k' + S.seq, name: '' }); save(); wall();
       const ins = app.querySelectorAll('.pname'); ins[ins.length-1].focus(); };
     app.querySelectorAll('.pname').forEach(i => i.oninput = () => { S.piles.find(x => x.id === i.dataset.p).name = i.value; save(); });
@@ -2900,12 +3117,12 @@ function groupApp(g){
         <p>這些${esc(grp.who)}沒有報考資優班，最主要的原因是什麼？為什麼他們會這樣想？寫下你們自己的結論，等一下跟其他組比較。</p>
         <textarea id="concl" placeholder="我們發現……">${esc(S.concl)}</textarea>
       </div>
-      <div class="foot"><button class="btn ghost" id="toW">← 回歸納牆</button><button class="btn ghost" id="toS">📚 資料出處</button></div>
-      <div class="foot"><span></span><button class="linkbtn" id="clr">🔒 教師清除紀錄</button></div>`);
+      <div class="foot"><button class="btn ghost" id="toW">← 回歸納牆</button>${SID ? '<button class="btn ghost othersbtn" style="display:none">👀 看其他組</button>' : ''}<button class="btn ghost" id="toS">📚 資料出處</button></div>
+      ${SID ? '' : '<div class="foot"><span></span><button class="linkbtn" id="clr">🔒 教師清除紀錄</button></div>'}`);
     const c = document.getElementById('concl'); c.oninput = () => { S.concl = c.value; save(); };
     document.getElementById('toW').onclick = () => go('wall');
     document.getElementById('toS').onclick = () => go('sources');
-    document.getElementById('clr').onclick = askPin;
+    const clrb = document.getElementById('clr'); if (clrb) clrb.onclick = askPin;
   }
   function askPin(){
     const o = document.createElement('div'); o.className = 'overlay';
