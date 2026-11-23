@@ -2615,7 +2615,6 @@ const FB_CONFIG = {
   appId: '1:725778566175:web:647f85bf14e2e9c912d92a',
   messagingSenderId: '725778566175'
 };
-const TEACHER_EMAIL = 'peitt1940@gmail.com';
 const FB_VER = '10.14.1';
 
 async function cloudInit(){
@@ -2629,8 +2628,7 @@ async function cloudInit(){
   return {
     onAuth: cb => A.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid, email: u.email || '', anon: u.isAnonymous } : null)),
     anon: () => A.signInAnonymously(auth),
-    google: () => A.signInWithPopup(auth, new A.GoogleAuthProvider()),
-    signOut: () => A.signOut(auth),
+    uid: () => auth.currentUser && auth.currentUser.uid,
     set: (p, v) => D.set(D.ref(db, p), v),
     update: (p, v) => D.update(D.ref(db, p), v),
     remove: p => D.remove(D.ref(db, p)),
@@ -2651,16 +2649,17 @@ function fakeCloud(){
   const subs = [];
   const fire = () => { const d = read(); subs.forEach(s => s.cb(JSON.parse(JSON.stringify(at(d, s.p))))); };
   window.addEventListener('storage', e => { if (e.key === K) fire(); });
-  const write = f => { const d = read(); f(d); localStorage.setItem(K, JSON.stringify(d)); fire(); return Promise.resolve(); };
+  const FAKE_PW = 'test-pass'; // 只用於本機測試，真正的密碼只在 Firebase 安全規則裡
+  const write = (f, p, v) => { if (p && /^teachers\//.test(p) && v !== null && v !== FAKE_PW) return Promise.reject(new Error('PERMISSION_DENIED'));
+    const d = read(); f(d); localStorage.setItem(K, JSON.stringify(d)); fire(); return Promise.resolve(); };
   let user = null; const authSubs = [];
   const setUser = u => { user = u; sessionStorage.setItem('fake-user', JSON.stringify(u)); authSubs.forEach(cb => cb(u)); };
   try { user = JSON.parse(sessionStorage.getItem('fake-user')); } catch(e){}
   return {
     onAuth: cb => { authSubs.push(cb); setTimeout(() => cb(user), 0); },
     anon: () => { setUser({ uid: 'anon-' + Math.random().toString(36).slice(2, 8), email: '', anon: true }); return Promise.resolve(); },
-    google: () => { setUser({ uid: 'teacher', email: TEACHER_EMAIL, anon: false }); return Promise.resolve(); },
-    signOut: () => { setUser(null); return Promise.resolve(); },
-    set: (p, v) => write(d => put(d, p, v)),
+    uid: () => user && user.uid,
+    set: (p, v) => write(d => put(d, p, v), p, v),
     update: (p, v) => write(d => Object.entries(v).forEach(([k, x]) => put(d, p + '/' + k, x))),
     remove: p => write(d => put(d, p, null)),
     get: p => Promise.resolve(at(read(), p)),
@@ -2720,28 +2719,33 @@ function teacherApp(){
   app.innerHTML = `<div class="top"><h1>資優班街頭採訪隊｜教師看板</h1><span id="who" class="badge">連線中…</span></div><div class="wrap" id="tw" style="max-width:1240px"><div class="card"><p>連線中，請稍候…</p></div></div>`;
   const tw = document.getElementById('tw');
 
-  cloudInit().then(c => { cloud = c; c.onAuth(u => { user = u; route(); }); })
-    .catch(e => { tw.innerHTML = `<div class="card"><h2>連不上雲端</h2><p>請確認網路後重新整理。</p><p class="hint">${esc(e.message || e)}</p></div>`; });
+  cloudInit().then(c => { cloud = c; c.onAuth(u => { user = u; if (!u){ c.anon().catch(e => fail(e)); return; } route(); }); })
+    .catch(e => fail(e));
+  function fail(e){ tw.innerHTML = `<div class="card"><h2>連不上雲端</h2><p>請確認網路後重新整理。</p><p class="hint">${esc(e.message || e)}</p></div>`; }
 
   function clearSubs(){ unsub.forEach(f => { try { f(); } catch(e){} }); unsub = []; }
   function route(){
     clearSubs();
     const who = document.getElementById('who');
-    if (!user || user.anon){
-      who.textContent = '未登入';
-      tw.innerHTML = `<div class="card" style="text-align:center"><div style="font-size:52px">👩‍🏫</div><h2>教師登入</h2>
-        <p>用教師的 Google 帳號登入，才能看各組進度、公布歸納牆。</p><button class="btn" id="login">用 Google 登入</button>
-        <p class="hint" id="lmsg"></p></div>`;
-      document.getElementById('login').onclick = () => cloud.google().catch(e => { document.getElementById('lmsg').textContent = '登入失敗：' + (e.code || e.message); });
-      return;
-    }
-    if (user.email !== TEACHER_EMAIL){
-      who.textContent = user.email;
-      tw.innerHTML = `<div class="card"><h2>這個帳號沒有教師權限</h2><p>${esc(user.email)} 不是教師帳號。</p><button class="btn ghost" id="lo">登出</button></div>`;
-      document.getElementById('lo').onclick = () => cloud.signOut();
-      return;
-    }
-    who.textContent = '👩‍🏫 ' + user.email;
+    who.textContent = '檢查中…';
+    cloud.get('teachers/' + cloud.uid()).then(v => v ? board() : loginForm()).catch(() => loginForm());
+  }
+  function loginForm(msg){
+    document.getElementById('who').textContent = '未登入';
+    tw.innerHTML = `<div class="card" style="text-align:center"><div style="font-size:52px">👩‍🏫</div><h2>教師登入</h2>
+      <p>輸入教師密碼，這台電腦會記住，下次不用再輸入。</p>
+      <input id="tpw" type="password" autocomplete="current-password" placeholder="教師密碼" style="font:inherit;font-size:20px;padding:10px 14px;border:2px solid var(--line);border-radius:10px;width:240px;text-align:center">
+      <div class="row" style="margin-top:12px"><button class="btn" id="login">登入</button></div>
+      <p class="hint" id="lmsg" style="color:var(--warn);min-height:1.4em">${msg || ''}</p></div>`;
+    const inp = document.getElementById('tpw'); inp.focus();
+    const go = () => { const pw = inp.value.trim(); if (!pw) return;
+      document.getElementById('lmsg').textContent = '確認中…';
+      cloud.set('teachers/' + cloud.uid(), pw).then(() => route()).catch(() => loginForm('密碼不對，請再試一次。')); };
+    document.getElementById('login').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+  }
+  function logout(){ clearSubs(); cloud.remove('teachers/' + cloud.uid()).catch(() => {}).then(() => loginForm()); }
+  function board(){
+    document.getElementById('who').textContent = '👩‍🏫 教師';
     unsub.push(cloud.on('current', v => { sid = v || null; subSession(); }));
   }
   function subSession(){
@@ -2765,7 +2769,7 @@ function teacherApp(){
     if (!sid){
       tw.innerHTML = `<div class="card" style="text-align:center"><h2>還沒有開始的課堂</h2><p>按下面的按鈕開一堂新課，就會產生這堂課專用的四組 QR code。</p><button class="btn" id="ns">開新的一堂課</button></div>
         <div class="foot"><span></span><button class="linkbtn" id="lo">登出</button></div>`;
-      document.getElementById('ns').onclick = newSession; document.getElementById('lo').onclick = () => cloud.signOut();
+      document.getElementById('ns').onclick = newSession; document.getElementById('lo').onclick = logout;
       return;
     }
     const keys = Object.keys(GROUPS);
@@ -2811,7 +2815,7 @@ function teacherApp(){
     document.getElementById('tq').onclick = () => { showQR = !showQR; draw(); };
     document.getElementById('ns').onclick = () => confirmBox('開新的一堂課？', '會產生新的 QR code，各組平板要重新掃描。這堂課的資料會留著，要刪除請按「清除這堂課」。', '開新課', newSession);
     document.getElementById('del').onclick = () => confirmBox('清除這堂課？', `代碼 ${esc(sid)} 的四組紀錄會從雲端全部刪除，無法復原。`, '確定清除', () => cloud.remove(`sessions/${sid}`).then(() => cloud.set('current', null)));
-    document.getElementById('lo').onclick = () => cloud.signOut();
+    document.getElementById('lo').onclick = logout;
     timerUI();
   }
   function look(g){

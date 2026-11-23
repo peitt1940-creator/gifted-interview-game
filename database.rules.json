@@ -1,15 +1,25 @@
 {
   "rules": {
+    "teachers": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === '教師密碼（只填在 Firebase 主控台）')"
+      }
+    },
     "current": {
-      ".read": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true",
-      ".write": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true"
+      ".read": "auth != null && root.child('teachers/' + auth.uid).val() === '教師密碼（只填在 Firebase 主控台）'",
+      ".write": "auth != null && root.child('teachers/' + auth.uid).val() === '教師密碼（只填在 Firebase 主控台）'"
     },
     "sessions": {
-      ".read": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true",
-      ".write": "auth != null && auth.token.email == 'peitt1940@gmail.com' && auth.token.email_verified == true",
+      ".read": "auth != null && root.child('teachers/' + auth.uid).val() === '教師密碼（只填在 Firebase 主控台）'",
+      ".write": "auth != null && root.child('teachers/' + auth.uid).val() === '教師密碼（只填在 Firebase 主控台）'",
       "$sid": {
-        "meta": { ".read": "auth != null" },
-        "publish": { ".read": "auth != null" },
+        "meta": {
+          ".read": "auth != null"
+        },
+        "publish": {
+          ".read": "auth != null"
+        },
         "groups": {
           "$g": {
             ".read": "auth != null && root.child('sessions/' + $sid + '/publish/' + $g).val() === true",
