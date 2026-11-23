@@ -76,6 +76,42 @@ table.rec th{color:var(--mute);font-weight:700;font-size:13px}
 .overlay .box .big{font-size:48px}
 .foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px;flex-wrap:wrap}
 .linkbtn{background:none;color:var(--mute);text-decoration:underline;font-size:13px}
+
+.badge{background:rgba(255,255,255,.18);padding:4px 10px;border-radius:10px;font-weight:700;font-size:15px}
+.bounce{animation:bounce .5s ease}
+@keyframes bounce{0%{transform:translateY(30px) scale(.7);opacity:0}60%{transform:translateY(-6px) scale(1.05);opacity:1}100%{transform:none}}
+.qbtn:disabled{cursor:default}
+.qbtn.follow{background:#d9822b}
+.qbtn.follow.asked{background:#fbe9d5;color:#8a4b10}
+.ch{cursor:pointer;padding:1px 0}
+.ch.hl{background:#ffe066;box-shadow:0 2px 0 #f2b705}
+.ch.start{background:#9ad8c9;outline:2px solid var(--teal-d)}
+.flynote{position:fixed;right:20px;top:60px;background:var(--teal);color:#fff;font-weight:800;padding:8px 14px;border-radius:12px;z-index:30;animation:fly .9s ease forwards}
+@keyframes fly{0%{transform:translateY(40px);opacity:0}30%{opacity:1}100%{transform:translateY(-20px);opacity:0}}
+.tray{background:#fff;border:2px dashed #b9c9c5;border-radius:16px;padding:12px;margin:12px 0}
+.trayh{font-weight:800;color:var(--navy);margin-bottom:8px}
+.notes{display:flex;flex-wrap:wrap;gap:10px;min-height:56px}
+.piles{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.pile{background:var(--teal-l);border:2px solid #bfe6dc;border-radius:16px;padding:10px;min-height:150px}
+.pile.over,.tray.over{border-color:var(--teal-d);background:#cdeee5}
+.pileh{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.pname{flex:1;min-width:0;font:inherit;font-size:17px;font-weight:800;padding:7px 9px;border:2px solid #9ccfc2;border-radius:10px;color:var(--navy)}
+.pc{background:var(--navy);color:#fff;border-radius:999px;padding:2px 9px;font-weight:800;font-size:14px}
+.pdel{background:none;color:var(--mute);font-size:18px;padding:4px}
+.addpile{border:2px dashed var(--teal);background:#fff;color:var(--teal-d);border-radius:16px;font-size:18px;font-weight:800;min-height:150px}
+.droph{font-size:14px;align-self:center}
+.note{background:#fff8c4;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.15);padding:8px 10px;width:220px;max-width:100%;touch-action:none;user-select:none;-webkit-user-select:none;transform:rotate(-.6deg)}
+.note:nth-child(2n){transform:rotate(.8deg);background:#fdf1c9}
+.note.sel{outline:3px solid var(--teal-d)}
+.note.dragging{opacity:.35}
+.note.ghost{position:fixed;z-index:40;pointer-events:none;transform:rotate(3deg) scale(1.04);box-shadow:0 10px 24px rgba(0,0,0,.25)}
+.nh{font-size:13px;font-weight:800;color:var(--navy);margin-bottom:4px}
+.nt2{font-size:15px;line-height:1.55}
+.nt2 .ch{cursor:inherit}
+.ftag{background:#d9822b;color:#fff;border-radius:6px;font-size:11px;padding:0 5px;margin-left:4px}
+.flip{background:none;color:var(--teal-d);font-size:13px;font-weight:700;padding:4px 0 0}
+.plist li{margin:6px 0;line-height:1.6}
+.box.clue ul{padding-left:20px}
 </style>
 </head>
 <body>
@@ -2382,15 +2418,6 @@ var qrcode = function() {
 </script>
 <script>
 // ===== 資料積木：四組受訪者、線索、出處 =====
-const TAGS = [
-  { id: 'info',  name: '資訊有限',     color: '#3b82c4' },
-  { id: 'know',  name: '不了解資優',   color: '#7a5cc7' },
-  { id: 'exam',  name: '以為是考試班', color: '#d9822b' },
-  { id: 'label', name: '怕被貼標籤',   color: '#c2456a' },
-  { id: 'life',  name: '生活安排',     color: '#5a8f3c' },
-  { id: 'none',  name: '沒有誤會',     color: '#6b7280' }
-];
-
 const GROUPS = {
   1: {
     title: '第1組：家長說明會', who: '家長', scene: '🏫 家長說明會會場',
@@ -2399,6 +2426,8 @@ const GROUPS = {
       { id: 'p1', name: '陳媽媽', avatar: '👩', note: '孩子讀二年級',
         a1: '我也不太清楚耶，好像是很聰明的小孩去的地方？',
         a2: '我覺得我家孩子不是那塊料，報名還要花錢，就沒報了。',
+        fq: '您怎麼判斷孩子不是那塊料？',
+        f: '就是感覺啦，也沒有人告訴我要怎麼看。後來是朋友一直勸，我才在截止前兩分鐘把報名表交出去。',
         clues: ['高雄市國小資優鑑定：二、四年級學生由班級導師推薦或家長申請就能報名。', '簡章沒有規定成績門檻；初選是團體智力測驗，複選是個別智力測驗。'],
         src: [1, 17] },
       { id: 'p2', name: '林爸爸', avatar: '👨', note: '孩子讀二年級',
@@ -2409,6 +2438,8 @@ const GROUPS = {
       { id: 'p3', name: '王媽媽', avatar: '👩‍🦱', note: '孩子讀四年級',
         a1: '大家都覺得資優班的孩子要樣樣優秀吧。',
         a2: '我不想讓孩子太特別、被貼標籤，在家裡栽培就好。',
+        fq: '為什麼會擔心被貼標籤？',
+        f: '我聽別的家長說，有資優生在原班因為沒有每一科都最好，被同學笑。',
         clues: ['彰化縣的 QA：資優生並非全才，多數是偏才，不一定很會考試。', '國小資優資源班多半是抽離式：平常在原班上課，每週有幾節到資優班上課。'],
         src: [6, 3, 18] },
       { id: 'p4', name: '張爸爸', avatar: '🧔', note: '孩子讀四年級',
@@ -2435,8 +2466,10 @@ const GROUPS = {
       { id: 'p2', name: '小宇', avatar: '👦', note: '二年級，表哥讀過資優班',
         a1: '我表哥有讀，他說很好玩，會做實驗！',
         a2: '好想去，可是我成績不好，一定考不上。',
+        fq: '你覺得要考幾分才考得上？',
+        f: '應該要每一科都一百分吧？',
         clues: ['高雄市的簡章沒有規定成績門檻；初選是團體智力測驗，複選是個別智力測驗。', '彰化縣的 QA：資優生可能思考、反應很好，但不一定很會考試，也不一定學業成績很好。'],
-        src: [1, 3] },
+        src: [1, 3, 20] },
       { id: 'p3', name: '小凱', avatar: '🧒', note: '二年級',
         a1: '應該是很聰明的人去的地方吧。',
         a2: '我爸媽說我很笨，考了也是浪費錢。',
@@ -2446,6 +2479,8 @@ const GROUPS = {
       { id: 'p4', name: '小芸', avatar: '👧🏻', note: '二年級，班上有資優生',
         a1: '班上有資優生比較好玩，他會講新東西給我們聽！',
         a2: '我想去看看他們到底在上什麼。',
+        fq: '如果班上沒有資優生，會怎麼樣？',
+        f: '那就會變得比較沒那麼有趣吧。',
         clues: ['花蓮縣宜昌國小的研究中，一位普通班學生受訪時說：資優生會講一些不同的東西，讓我們學到新的知識。'],
         src: [7] }
     ]
@@ -2467,11 +2502,15 @@ const GROUPS = {
       { id: 'p3', name: '阿凱', avatar: '🧑', note: '六年級',
         a1: '他們犯錯好像只被罵一下下。',
         a2: '去了也不知道要上什麼，還要少上原班的課。',
+        fq: '「只被罵一下下」是什麼意思？',
+        f: '就是老師罵他們的方式不一樣，罵一下下，再跟他說一下下就好了。',
         clues: ['宜昌國小的問卷：32 位普通班學生中有 24 人（75%）不同意「資優生常受到師長的特別待遇」。', '資優班課程有獨立研究、情意、創造思考、領導等特殊需求課程。'],
-        src: [7, 3] },
+        src: [7, 3, 21] },
       { id: 'p4', name: '小婷', avatar: '👩🏻', note: '四年級',
         a1: '資優生應該很在意自己的成績吧。',
         a2: '我不想被叫資優生，大家會一直看我考幾分。',
+        fq: '為什麼不想被叫資優生？',
+        f: '考不好的時候，好像就不配當資優生了，感覺不能犯錯。',
         clues: ['宜昌國小的問卷：32 位老師中有 25 人（78.1%）不同意「資優生喜歡被稱呼為資優生」。', '有文章提到，資優生標籤可能讓孩子覺得「我是資優生，所以我不能犯錯」。'],
         src: [7, 14] },
       { id: 'p5', name: '阿明', avatar: '👦🏽', note: '四年級，班上有資優生',
@@ -2493,11 +2532,15 @@ const GROUPS = {
       { id: 'p2', name: '上班族姊姊', avatar: '👩‍💼', note: '常看教育新聞',
         a1: '新聞說資優班作業考試一大堆，晚上週末還要留下來練。',
         a2: '這麼累，我才不會讓小孩去。',
+        fq: '您看到的新聞，講的是國小嗎？',
+        f: '呃……我想想，好像是在講高中耶。',
         clues: ['這段批評出自一位大學教授的評論，他談的是部分高中的資優班。', '國小資優資源班的課程重點是獨立研究、主題探究、情意、創造思考、領導等。'],
         src: [11, 3] },
       { id: 'p3', name: '鄰居阿伯', avatar: '👴', note: '孫子讀二年級',
         a1: '天才自己會長大啦，花錢在他們身上是浪費。',
         a2: '我孫子普普通通，不用考啦。',
+        fq: '為什麼覺得天才自己會長大？',
+        f: '天才就是天生的啊，不用特別教啦。',
         clues: ['臺南市的資優 QA 把「資優生人數很少，在他們身上投資資源是浪費的」列為需要澄清的說法。', '同一份 QA：資優生在各社會階層、各種族都可能出現。'],
         src: [5] },
       { id: 'p4', name: '社區媽媽', avatar: '👩‍🍳', note: '孩子讀五年級',
@@ -2533,6 +2576,8 @@ const SOURCES = {
   16: ['Lolo 的沙龍。讓小孩讀資優班前你必須知道的事。方格子 vocus。', 'https://vocus.cc/article/5f8ce79afd897800010b3111'],
   17: ['個人部落格。謎樣的國小資優鑑定：報名與第一階段的智力測驗。痞客邦。', 'https://u851219.pixnet.net/blog/posts/9556920508'],
   18: ['uptogo。國小資優鑑定考什麼？家長必看的評量內容與準備心法。', 'https://uptogo.com.tw/測試/國小資優鑑定考什麼？/'],
+  20: ['花蓮縣資優教育宣導資料。資優觀念小測試。', 'https://student.hlc.edu.tw/hualien/action/file/366/20160909114115504.pdf'],
+  21: ['花蓮縣宜昌國小學生研究訪談紀錄（校長、主任、教師與學生對資優生的看法）。', 'https://student.hlc.edu.tw/hualien/action/file/366/20160923110311164.docx'],
   19: ['蔡典謨。低成就資優學生家庭影響之質的研究（一）。國科會專題研究計畫成果報告。', 'https://srda.sinica.edu.tw/file/82e7c1af-0f37-4be4-b14f-e2a86fc64e3a']
 };
 
@@ -2568,7 +2613,7 @@ function teacherApp(){
           <button class="btn" id="tstart">開始計時</button>
           <button class="btn ghost" id="treset">重設 8 分鐘</button>
         </div>
-        <p class="hint" style="text-align:center;margin-top:10px">各組平板有自己的 8 分鐘倒數（按下「開始訪問」才起算），這裡的計時給全班看。</p>
+        <p class="hint" style="text-align:center;margin-top:10px">各組平板有自己的 8 分鐘採訪倒數（按下「出發採訪」才起算），這裡的計時給全班看。</p>
       </div>
       <div class="qrgrid" id="qrs"></div>
       <div class="card">
@@ -2576,7 +2621,8 @@ function teacherApp(){
         <p>1. 投影這一頁，每組用一台平板掃自己那組的 QR code。</p>
         <p>2. 四組訪問的對象不同：第1組家長、第2組低年級學生、第3組中高年級學生、第4組社會人士。</p>
         <p>3. 紀錄只存在各組自己的平板，各組同時進行互不干擾。重新整理頁面不會清掉紀錄。</p>
-        <p>4. 下一個班級要用時，在各組平板的「統計」頁最下方按「清除本組紀錄」。</p>
+        <p>4. 採訪 8 分鐘後進入「歸納牆」，各組把便利貼分堆、自己取名，再寫結論。</p>
+        <p>5. 下一個班級要用時，在各組平板的「結果」頁最下方按兩次「清除本組紀錄」。</p>
       </div>
     </div>`;
   const box = document.getElementById('qrs');
@@ -2607,54 +2653,56 @@ function teacherApp(){
 // ================= 組別頁 =================
 function groupApp(g){
   const grp = GROUPS[g];
-  const KEY = 'zyp-g' + g;
-  const blank = () => ({ startAt:0, endAt:0, rec:{}, concl:'', view:'intro', pid:null });
+  const KEY = 'zyp2-g' + g;
+  const blank = () => ({ startAt:0, endAt:0, asked:{}, notes:[], piles:[], concl:'', view:'intro', pid:null, seq:0 });
   let S = store.get(KEY, blank());
   const save = () => store.set(KEY, S);
-  const rec = pid => (S.rec[pid] = S.rec[pid] || { a1:false, a2:false, t1:[], t2:[], clue:false, sel:'' });
   const timeUp = () => S.endAt && Date.now() >= S.endAt;
-  const personDone = p => { const r = S.rec[p.id]; return r && r.a1 && r.a2 && r.t1.length && r.t2.length; };
-  let ticker = null, shownUp = false, justAsked = null;
+  const P = id => grp.people.find(p => p.id === id);
+  const keysOf = p => p.f ? ['a1','a2','f'] : ['a1','a2'];
+  const qText = (p, k) => k === 'a1' ? '你覺得資優班在做什麼？' : k === 'a2' ? grp.q2 : p.fq;
+  const noteOf = (pid, k) => S.notes.find(n => n.pid === pid && n.k === k);
+  const personDone = p => keysOf(p).every(k => noteOf(p.id, k));
+  let shownUp = false, typing = null, pending = null, selNote = null, entered = null;
 
   function shell(inner, showClock = true){
-    app.innerHTML = `<div class="top"><h1>${esc(grp.title)}</h1>${showClock && S.startAt ? '<span class="clock" id="clk">--:--</span>' : ''}</div><div class="wrap">${inner}</div>`;
+    app.innerHTML = `<div class="top"><h1>${esc(grp.title)}</h1><div style="display:flex;gap:8px;align-items:center">
+      ${S.startAt ? `<span class="badge">📒 ${S.notes.length} 張</span>` : ''}
+      ${showClock && S.startAt ? '<span class="clock" id="clk">--:--</span>' : ''}</div></div><div class="wrap">${inner}</div>`;
     tick();
   }
   function tick(){
     const c = document.getElementById('clk');
-    if (c){ const left = S.endAt - Date.now(); c.textContent = fmt(left); c.classList.toggle('low', left <= 60000); }
-    if (timeUp() && !shownUp && S.view !== 'results' && S.view !== 'sources'){
+    if (c){ const left = S.endAt - Date.now(); c.textContent = left > 0 ? fmt(left) : '時間到'; c.classList.toggle('low', left <= 60000); }
+    if (timeUp() && !shownUp && (S.view === 'scene' || S.view === 'person')){
       shownUp = true;
       const o = document.createElement('div'); o.className = 'overlay';
-      o.innerHTML = `<div class="box"><div class="big">⏰</div><h2>時間到！</h2><p>訪問結束，一起看看你們收集到什麼。</p><button class="btn" id="goR">看統計</button></div>`;
+      o.innerHTML = `<div class="box"><div class="big">⏰</div><h2>採訪時間到！</h2><p>你們收集了 ${S.notes.length} 張便利貼。<br>帶著採訪本，到歸納牆整理看看。</p><button class="btn" id="goW">到歸納牆</button></div>`;
       document.body.appendChild(o);
-      o.querySelector('#goR').onclick = () => { o.remove(); go('results'); };
+      o.querySelector('#goW').onclick = () => { o.remove(); go('wall'); };
     }
   }
-  function go(view, pid){ S.view = view; if (pid !== undefined) S.pid = pid; save(); render(); window.scrollTo(0,0); }
-
-  function render(){
-    ({ intro, scene, person, results, sources })[S.view in { intro:1, scene:1, person:1, results:1, sources:1 } ? S.view : 'intro']();
-  }
+  function go(view, pid){ S.view = view; if (pid !== undefined) S.pid = pid; save(); typing = null; pending = null; selNote = null; render(); window.scrollTo(0,0); }
+  function render(){ const v = { intro, scene, person, wall, results, sources }; (v[S.view] || intro)(); }
 
   // ---- 開場 ----
   function intro(){
-    if (S.startAt){ return go('scene'); }
+    if (S.startAt) return go('scene');
     shell(`
       <div class="card" style="text-align:center">
-        <div style="font-size:56px">🎤</div>
+        <div style="font-size:56px" class="bounce">🎤</div>
         <h2>${esc(grp.title)}</h2>
-        <p>今天你們是「資優班街頭採訪隊」，要到 <b>${esc(grp.scene)}</b> 訪問 ${grp.people.length} 位${esc(grp.who)}。</p>
+        <p>你們是「資優班街頭採訪隊」，今天要到 <b>${esc(grp.scene)}</b> 訪問 ${grp.people.length} 位${esc(grp.who)}。</p>
+        <p>為什麼有些人沒有報考資優班？答案藏在他們說的話裡。</p>
       </div>
       <div class="card">
-        <h3>任務規則</h3>
-        <p>1. 點一位受訪者，問他兩個問題。</p>
-        <p>2. 每聽完一個回答，替這句話貼 1～2 張標籤：你們覺得這句話背後是什麼原因？</p>
-        <p>3. 兩題都貼好標籤，就能打開「線索」。看完線索，可以回頭改標籤。</p>
-        <p>4. 時間只有 <b>${GAME_MIN} 分鐘</b>，分工合作，盡量訪問每一位。</p>
-        <div class="row" style="margin-top:10px">${TAGS.map(t => `<span class="mini" style="background:${t.color};font-size:14px;padding:4px 10px">${t.name}</span>`).join('')}</div>
+        <h3>採訪守則</h3>
+        <p>1. 點一位受訪者，向他提問。有些人說的話值得<b>追問</b>，找找看是誰。</p>
+        <p>2. 聽完回答，在台詞上<b>畫重點</b>：點第一個字，再點最後一個字。</p>
+        <p>3. 畫好重點，把這句話<b>收進採訪本</b>，變成一張便利貼。</p>
+        <p>4. 採訪時間 <b>${GAME_MIN} 分鐘</b>，時間到就帶著便利貼去歸納牆。</p>
       </div>
-      <div class="row"><button class="btn" id="start">開始訪問（${GAME_MIN} 分鐘）</button></div>`, false);
+      <div class="row"><button class="btn" id="start">出發採訪！</button></div>`, false);
     document.getElementById('start').onclick = () => { S.startAt = Date.now(); S.endAt = S.startAt + GAME_MIN*60000; go('scene'); };
   }
 
@@ -2664,89 +2712,198 @@ function groupApp(g){
     shell(`
       <div class="scene">
         <h2>${esc(grp.scene)}</h2>
-        <p class="muted">已完成 ${done} / ${grp.people.length} 位。點一位開始訪問。</p>
+        <p class="muted">已採訪完 ${done} / ${grp.people.length} 位。點一位開始訪問。</p>
         <div class="people">
-          ${grp.people.map(p => { const r = S.rec[p.id]; const n = r ? (r.a1?1:0)+(r.a2?1:0) : 0;
+          ${grp.people.map(p => { const n = keysOf(p).filter(k => noteOf(p.id, k)).length;
             return `<button class="person ${personDone(p)?'done':''}" data-p="${p.id}">
               <div class="av">${p.avatar}</div><div class="nm">${esc(p.name)}</div><div class="nt">${esc(p.note)}</div>
-              <div class="st">${personDone(p) ? '✓ 完成' : (n ? `已問 ${n} 題` : '還沒訪問')}</div></button>`; }).join('')}
+              <div class="st">${personDone(p) ? '✓ 採訪完成' : (n ? `收了 ${n} 張` : '還沒訪問')}</div></button>`; }).join('')}
         </div>
       </div>
-      <div class="row" style="margin-top:16px"><button class="btn ghost" id="toR">結束訪問，看統計</button></div>`);
+      <div class="row" style="margin-top:16px"><button class="btn ghost" id="toW">🧩 到歸納牆</button></div>`);
     app.querySelectorAll('.person').forEach(b => b.onclick = () => go('person', b.dataset.p));
-    document.getElementById('toR').onclick = () => go('results');
+    document.getElementById('toW').onclick = () => go('wall');
   }
 
-  // ---- 訪問 ----
+  // ---- 訪問：提問、打字、畫重點 ----
+  function markHtml(text, marks, interactive){
+    const inMark = i => marks.some(([a,b]) => i >= a && i <= b);
+    return [...text].map((ch, i) => `<span class="ch ${inMark(i)?'hl':''}" ${interactive?`data-i="${i}"`:''}>${esc(ch)}</span>`).join('');
+  }
   function person(){
-    const p = grp.people.find(x => x.id === S.pid); if (!p) return go('scene');
-    const r = rec(p.id); const locked = timeUp();
-    const qs = [ ['a1','t1','你覺得資優班在做什麼？'], ['a2','t2', grp.q2] ];
-    const tagged = r.a1 && r.a2 && r.t1.length && r.t2.length;
+    const p = P(S.pid); if (!p) return go('scene');
+    const locked = timeUp();
+    const asked = S.asked[p.id] = S.asked[p.id] || {};
+    const showF = p.f && asked.a2;
+    const keys = ['a1','a2'].concat(showF ? ['f'] : []);
     shell(`
       <button class="btn ghost small" id="back">← 回到${esc(grp.scene.replace(/^\S+\s/,''))}</button>
       <div class="card">
-        <div class="who"><div class="av">${p.avatar}</div><div><h2 style="margin:0">${esc(p.name)}</h2><div class="muted">${esc(p.note)}</div></div></div>
-        ${locked ? '<div class="lockmsg">時間到了，標籤已經不能修改。</div>' : ''}
-        ${qs.map(([a,t,q],i) => `
-          <div class="qa">
-            <button class="qbtn ${r[a]?'asked':''}" data-a="${a}" ${locked && !r[a] ? 'disabled' : ''}>🎤 問題${i+1}：${esc(q)}</button>
-            ${r[a] ? `<div class="bubble ${justAsked===a?'anim':''}">${esc(p[a])}</div>
-              <div class="tagask">這句話背後是什麼原因？（選 1～2 張）</div>
-              <div class="chips">${TAGS.map(tg => `<button class="chip ${r[t].includes(tg.id)?'on':''}" style="--c:${tg.color}" data-t="${t}" data-id="${tg.id}" ${locked?'disabled':''}>${tg.name}</button>`).join('')}</div>` : ''}
-          </div>`).join('')}
-        ${tagged ? (r.clue ? `
-          <div class="clue"><h3>🔍 線索</h3><ul>${p.clues.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
-          <div class="hint">看完線索，想改標籤可以直接點上面的標籤。</div></div>
-          ${p.sel ? `<div class="sel card" style="margin-top:12px"><h3>💬 ${esc(p.sel)}</h3><textarea id="sel" placeholder="寫下你們想說的話" ${locked?'disabled':''}>${esc(r.sel)}</textarea></div>` : ''}`
-          : `<div class="row" style="margin-top:12px"><button class="btn" id="clue">🔍 打開線索</button></div>`)
-          : `<p class="hint" style="margin-top:12px">兩題都問完、都貼好標籤，就能打開線索。</p>`}
+        <div class="who"><div class="av ${entered!==p.id?'bounce':''}">${p.avatar}</div><div><h2 style="margin:0">${esc(p.name)}</h2><div class="muted">${esc(p.note)}</div></div></div>
+        ${locked ? '<div class="lockmsg">採訪時間到了，不能再提問或畫重點。</div>' : ''}
+        ${keys.map(k => {
+          const isF = k === 'f'; const n = noteOf(p.id, k);
+          return `<div class="qa" id="qa-${k}">
+            <button class="qbtn ${isF?'follow':''} ${asked[k]?'asked':''}" data-k="${k}" ${asked[k]||locked?'disabled':''}>${isF?'🔎 追問':'🎤 問題'+(k==='a1'?1:2)}：${esc(qText(p,k))}</button>
+            ${asked[k] ? `
+              <div class="bubble" data-k="${k}">${markHtml(p[k], n ? n.marks : (S.draft && S.draft[p.id+k]) || [], !locked)}</div>
+              ${locked ? '' : `<div class="tagask">${n ? '✓ 已收進採訪本。還想改重點，可以直接在台詞上重畫。' : '畫重點：點第一個字，再點最後一個字。點已畫的地方可以擦掉。'}</div>
+              <div class="row" style="justify-content:flex-start;margin-left:22px">${n ? '' : `<button class="btn small save" data-k="${k}">📒 收進採訪本</button>`}</div>`}` : ''}
+          </div>`; }).join('')}
+        ${p.f && !showF ? '<p class="hint" style="margin-top:10px">🤔 這個人好像還有話沒說完……</p>' : ''}
       </div>`);
-    document.getElementById('back').onclick = () => go('scene');
-    app.querySelectorAll('.qbtn').forEach(b => b.onclick = () => { if (locked) return; justAsked = r[b.dataset.a] ? null : b.dataset.a; r[b.dataset.a] = true; save(); person(); justAsked = null; });
-    app.querySelectorAll('.chip').forEach(b => b.onclick = () => {
-      if (locked) return; const arr = r[b.dataset.t], id = b.dataset.id, i = arr.indexOf(id);
-      if (i >= 0) arr.splice(i,1); else { if (arr.length >= 2) arr.shift(); arr.push(id); }
-      save(); person();
+    entered = p.id;
+    document.getElementById('back').onclick = () => { entered = null; go('scene'); };
+    app.querySelectorAll('.qbtn').forEach(b => b.onclick = () => {
+      if (locked) return; const k = b.dataset.k; asked[k] = true; save(); typing = k; person();
     });
-    const cb = document.getElementById('clue'); if (cb) cb.onclick = () => { r.clue = true; save(); person(); };
-    const sel = document.getElementById('sel'); if (sel) sel.oninput = () => { r.sel = sel.value; save(); };
+    // 打字效果
+    if (typing){
+      const box = app.querySelector(`.bubble[data-k="${typing}"]`);
+      if (box){ const chs = [...box.querySelectorAll('.ch')]; chs.forEach(c => c.style.visibility = 'hidden');
+        let i = 0; box.classList.add('typing');
+        const step = () => { if (i < chs.length){ chs[i++].style.visibility = 'visible'; box._t = setTimeout(step, 55); } else box.classList.remove('typing'); };
+        box.onclick = (ev) => { if (i < chs.length){ ev.stopImmediatePropagation(); clearTimeout(box._t); chs.forEach(c => c.style.visibility = 'visible'); i = chs.length; box.classList.remove('typing'); } };
+        step(); }
+      typing = null;
+    }
+    // 畫重點
+    app.querySelectorAll('.bubble').forEach(box => {
+      if (locked) return;
+      box.addEventListener('click', e => {
+        if (box.classList.contains('typing')) return;
+        const el = e.target.closest('.ch'); if (!el || el.dataset.i === undefined) return;
+        const k = box.dataset.k, i = +el.dataset.i, n = noteOf(p.id, k);
+        S.draft = S.draft || {}; const marks = n ? n.marks : (S.draft[p.id+k] = S.draft[p.id+k] || []);
+        const hit = marks.findIndex(([a,b]) => i >= a && i <= b);
+        if (hit >= 0){ marks.splice(hit, 1); pending = null; }
+        else if (pending && pending.k === k){ const a = Math.min(pending.i, i), b = Math.max(pending.i, i);
+          for (let j = marks.length - 1; j >= 0; j--) if (!(marks[j][1] < a || marks[j][0] > b)) marks.splice(j, 1);
+          marks.push([a, b]); marks.sort((x,y) => x[0]-y[0]); pending = null; }
+        else { pending = { k, i }; }
+        save();
+        box.innerHTML = markHtml(p[k], marks, true);
+        if (pending && pending.k === k) box.querySelector(`[data-i="${pending.i}"]`).classList.add('start');
+        const sb = app.querySelector(`.save[data-k="${k}"]`); if (sb) sb.disabled = !marks.length;
+      });
+    });
+    app.querySelectorAll('.save').forEach(b => {
+      const k = b.dataset.k; b.disabled = !((S.draft && S.draft[p.id+k]) || []).length;
+      b.onclick = () => {
+        const marks = (S.draft && S.draft[p.id+k]) || []; if (!marks.length) return;
+        S.notes.push({ id: p.id + '-' + k, pid: p.id, k, marks: marks.slice(), pile: null });
+        delete S.draft[p.id+k]; save();
+        const fly = document.createElement('div'); fly.className = 'flynote'; fly.textContent = '📒 +1';
+        document.body.appendChild(fly); setTimeout(() => fly.remove(), 900);
+        person();
+      };
+    });
   }
 
-  // ---- 統計 ----
-  function results(){
-    const cnt = Object.fromEntries(TAGS.map(t => [t.id, 0]));
-    grp.people.forEach(p => { const r = S.rec[p.id]; if (!r) return; [...r.t1, ...r.t2].forEach(id => cnt[id]++); });
-    const max = Math.max(1, ...Object.values(cnt));
-    const asked = grp.people.filter(p => S.rec[p.id] && (S.rec[p.id].a1 || S.rec[p.id].a2));
-    const tagHtml = ids => ids.map(id => { const t = TAGS.find(x => x.id === id); return `<span class="mini" style="background:${t.color}">${t.name}</span>`; }).join('') || '<span class="muted">（沒貼）</span>';
+  // ---- 歸納牆 ----
+  function noteCard(n){
+    const p = P(n.pid);
+    return `<div class="note ${selNote===n.id?'sel':''}" data-n="${n.id}">
+      <div class="nf"><div class="nh">${p.avatar} ${esc(p.name)}${n.k==='f'?'<span class="ftag">追問</span>':''}</div>
+        <div class="nt2">${markHtml(p[n.k], n.marks, false)}</div>
+        <button class="flip" data-n="${n.id}">↻ 線索</button></div>
+    </div>`;
+  }
+  function wall(){
+    const tray = S.notes.filter(n => !n.pile || !S.piles.find(x => x.id === n.pile));
     shell(`
       <div class="card">
-        <h2>📊 我們這組的標籤統計</h2>
-        <p class="muted">訪問對象：${esc(grp.who)}｜訪問了 ${asked.length} / ${grp.people.length} 位</p>
-        ${TAGS.map(t => `<div class="bar"><div class="lb" style="color:${t.color}">${t.name}</div><div class="tr"><div class="fl" style="width:${cnt[t.id]/max*100}%;background:${t.color}"></div></div><div class="n">${cnt[t.id]}</div></div>`).join('')}
+        <h2>🧩 歸納牆</h2>
+        <p>把意思相近的便利貼放在同一堆，再替每一堆取名字。用手指拖曳，或先點便利貼、再點要放的那一堆。</p>
+        <p class="hint">不確定放哪裡？點便利貼上的「↻ 線索」看看。</p>
       </div>
-      <div class="card">
-        <h2>📝 訪問紀錄</h2>
-        <table class="rec"><tr><th>受訪者</th><th>他說了什麼</th><th>標籤</th></tr>
-        ${asked.map(p => { const r = S.rec[p.id]; return [['a1','t1'],['a2','t2']].filter(([a]) => r[a]).map(([a,t],i) =>
-          `<tr><td>${i===0 ? `${p.avatar} ${esc(p.name)}` : ''}</td><td>${esc(p[a])}</td><td>${tagHtml(r[t])}</td></tr>`).join('')
-          + (r.sel ? `<tr><td></td><td colspan="2" class="muted">💬 我們想對${esc(p.name)}說：${esc(r.sel)}</td></tr>` : ''); }).join('') || '<tr><td colspan="3" class="muted">還沒有紀錄</td></tr>'}
-        </table>
-      </div>
-      <div class="card concl">
-        <h2>💡 我們的發現</h2>
-        <p>看著上面的統計和紀錄討論：哪一張標籤最多？這些${esc(grp.who)}為什麼會這樣想？寫下你們自己的結論，等一下跟其他組比較。</p>
-        <textarea id="concl" placeholder="我們發現……">${esc(S.concl)}</textarea>
+      <div class="tray" data-drop="tray"><div class="trayh">📒 還沒分堆（${tray.length}）</div><div class="notes">${tray.map(noteCard).join('') || '<span class="muted">全部分好了！</span>'}</div></div>
+      <div class="piles">
+        ${S.piles.map(pl => { const ns = S.notes.filter(n => n.pile === pl.id);
+          return `<div class="pile" data-drop="${pl.id}">
+            <div class="pileh"><input class="pname" data-p="${pl.id}" value="${esc(pl.name)}" placeholder="這一堆叫做……"><span class="pc">${ns.length}</span><button class="pdel" data-p="${pl.id}" title="刪除這一堆">✕</button></div>
+            <div class="notes">${ns.map(noteCard).join('') || '<span class="muted droph">把便利貼拖到這裡</span>'}</div></div>`; }).join('')}
+        <button class="addpile" id="add">＋ 新增一堆</button>
       </div>
       <div class="foot">
-        <button class="btn ghost" id="toS">📚 資料出處</button>
-        ${timeUp() ? '' : '<button class="btn ghost" id="toScene">回去繼續訪問</button>'}
+        ${timeUp() ? '<span></span>' : '<button class="btn ghost" id="toScene">← 回去採訪</button>'}
+        <button class="btn" id="toR">完成歸納，看結果</button>
+      </div>`);
+    document.getElementById('add').onclick = () => { S.seq++; S.piles.push({ id: 'k' + S.seq, name: '' }); save(); wall();
+      const ins = app.querySelectorAll('.pname'); ins[ins.length-1].focus(); };
+    app.querySelectorAll('.pname').forEach(i => i.oninput = () => { S.piles.find(x => x.id === i.dataset.p).name = i.value; save(); });
+    app.querySelectorAll('.pdel').forEach(b => b.onclick = () => { const id = b.dataset.p;
+      S.notes.forEach(n => { if (n.pile === id) n.pile = null; }); S.piles = S.piles.filter(x => x.id !== id); save(); wall(); });
+    app.querySelectorAll('.flip').forEach(b => b.onclick = e => { e.stopPropagation(); showClue(b.dataset.n); });
+    const ts = document.getElementById('toScene'); if (ts) ts.onclick = () => go('scene');
+    document.getElementById('toR').onclick = () => go('results');
+    // 點選移動
+    app.querySelectorAll('[data-drop]').forEach(z => z.addEventListener('click', e => {
+      if (!selNote || e.target.closest('.note') || e.target.closest('input,button')) return;
+      moveNote(selNote, z.dataset.drop);
+    }));
+    // 拖曳
+    app.querySelectorAll('.note').forEach(el => el.addEventListener('pointerdown', e => {
+      if (e.target.closest('.flip')) return;
+      const id = el.dataset.n, sx = e.clientX, sy = e.clientY; let ghost = null, over = null;
+      const mv = ev => {
+        if (!ghost && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8){
+          ghost = el.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width = el.offsetWidth + 'px'; document.body.appendChild(ghost); el.classList.add('dragging');
+        }
+        if (ghost){ ev.preventDefault(); ghost.style.left = (ev.clientX - el.offsetWidth/2) + 'px'; ghost.style.top = (ev.clientY - 20) + 'px';
+          ghost.style.display = 'none'; const z = document.elementFromPoint(ev.clientX, ev.clientY); ghost.style.display = '';
+          const dz = z && z.closest('[data-drop]'); if (over && over !== dz) over.classList.remove('over'); if (dz){ dz.classList.add('over'); over = dz; }
+          if (ev.clientY < 60) window.scrollBy(0, -12); else if (ev.clientY > innerHeight - 60) window.scrollBy(0, 12); }
+      };
+      const up = ev => {
+        document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+        if (ghost){ ghost.remove(); el.classList.remove('dragging'); if (over){ over.classList.remove('over'); moveNote(id, over.dataset.drop); } }
+        else { selNote = selNote === id ? null : id; wall(); }
+      };
+      document.addEventListener('pointermove', mv, { passive:false }); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+    }));
+  }
+  function moveNote(id, drop){
+    const n = S.notes.find(x => x.id === id); if (!n) return;
+    n.pile = drop === 'tray' ? null : drop; selNote = null; save(); wall();
+  }
+  function showClue(id){
+    const n = S.notes.find(x => x.id === id), p = P(n.pid);
+    const o = document.createElement('div'); o.className = 'overlay';
+    o.innerHTML = `<div class="box clue" style="text-align:left;max-width:460px"><h3>🔍 ${p.avatar} ${esc(p.name)} 的線索</h3><ul>${p.clues.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+      ${p.sel ? `<div class="sel"><b>💬 ${esc(p.sel)}</b><textarea id="sel" placeholder="寫下你們想說的話">${esc((S.sel||{})[p.id]||'')}</textarea></div>` : ''}
+      <div class="row" style="margin-top:10px"><button class="btn small" id="cx">看完了</button></div></div>`;
+    document.body.appendChild(o);
+    const t = o.querySelector('#sel'); if (t) t.oninput = () => { S.sel = S.sel || {}; S.sel[p.id] = t.value; save(); };
+    o.querySelector('#cx').onclick = () => o.remove();
+    o.onclick = e => { if (e.target === o) o.remove(); };
+  }
+
+  // ---- 結果 ----
+  function results(){
+    const piles = S.piles.map(pl => ({ ...pl, ns: S.notes.filter(n => n.pile === pl.id) })).sort((a,b) => b.ns.length - a.ns.length);
+    const tray = S.notes.filter(n => !n.pile || !S.piles.find(x => x.id === n.pile));
+    const max = Math.max(1, ...piles.map(x => x.ns.length));
+    const colors = ['#3fb39b','#1d4e89','#d9822b','#c2456a','#7a5cc7','#5a8f3c','#3b82c4','#a1662f'];
+    shell(`
+      <div class="card">
+        <h2>📊 我們歸納出的 ${piles.length} 堆</h2>
+        <p class="muted">訪問對象：${esc(grp.who)}｜收集 ${S.notes.length} 張便利貼${tray.length ? `，還有 ${tray.length} 張沒分堆` : ''}</p>
+        ${piles.map((pl,i) => `<div class="bar"><div class="lb" style="color:${colors[i%8]}">${esc(pl.name || '（還沒取名）')}</div><div class="tr"><div class="fl" style="width:${pl.ns.length/max*100}%;background:${colors[i%8]}"></div></div><div class="n">${pl.ns.length}</div></div>`).join('') || '<p class="muted">還沒有分堆，回歸納牆整理看看。</p>'}
       </div>
+      ${piles.map((pl,i) => `<div class="card"><h3 style="color:${colors[i%8]}">${esc(pl.name || '（還沒取名）')}</h3>
+        <ul class="plist">${pl.ns.map(n => { const p = P(n.pid); return `<li>${p.avatar} <b>${esc(p.name)}</b>：${markHtml(p[n.k], n.marks, false)}</li>`; }).join('')}</ul></div>`).join('')}
+      ${S.sel && Object.values(S.sel).some(Boolean) ? `<div class="card"><h3>💬 我們想說的話</h3>${grp.people.filter(p => S.sel[p.id]).map(p => `<p>對${esc(p.name)}說：${esc(S.sel[p.id])}</p>`).join('')}</div>` : ''}
+      <div class="card concl">
+        <h2>💡 我們的發現</h2>
+        <p>這些${esc(grp.who)}沒有報考資優班，最主要的原因是什麼？為什麼他們會這樣想？寫下你們自己的結論，等一下跟其他組比較。</p>
+        <textarea id="concl" placeholder="我們發現……">${esc(S.concl)}</textarea>
+      </div>
+      <div class="foot"><button class="btn ghost" id="toW">← 回歸納牆</button><button class="btn ghost" id="toS">📚 資料出處</button></div>
       <div class="foot"><span></span><button class="linkbtn" id="clr">清除本組紀錄（換下一班時使用）</button></div>`);
     const c = document.getElementById('concl'); c.oninput = () => { S.concl = c.value; save(); };
+    document.getElementById('toW').onclick = () => go('wall');
     document.getElementById('toS').onclick = () => go('sources');
-    const bs = document.getElementById('toScene'); if (bs) bs.onclick = () => go('scene');
     const clr = document.getElementById('clr'); let armed = false;
     clr.onclick = () => {
       if (!armed){ armed = true; clr.textContent = '確定要清除？再按一次'; clr.style.color = 'var(--warn)'; setTimeout(() => { armed = false; clr.textContent = '清除本組紀錄（換下一班時使用）'; clr.style.color = ''; }, 4000); return; }
@@ -2760,15 +2917,15 @@ function groupApp(g){
     shell(`
       <div class="card">
         <h2>📚 資料出處</h2>
-        <p>受訪者的台詞是依下面這些資料改寫成口語，有些是依資料內容設計的情境；線索裡的規定、數字和研究結果都來自這些資料。</p>
+        <p>受訪者的台詞依下面這些資料改寫成口語，有些是依資料內容設計的情境；線索裡的規定、數字和研究結果都來自這些資料。</p>
         <ol class="src">${ids.map(i => `<li>${esc(SOURCES[i][0])}<br><a href="${esc(SOURCES[i][1])}" target="_blank" rel="noopener">${esc(SOURCES[i][1])}</a></li>`).join('')}</ol>
       </div>
-      <div class="row"><button class="btn ghost" id="toR">← 回到統計</button></div>`);
+      <div class="row"><button class="btn ghost" id="toR">← 回到結果</button></div>`);
     document.getElementById('toR').onclick = () => go('results');
   }
 
   render();
-  ticker = setInterval(tick, 250);
+  setInterval(tick, 250);
 }
 </script>
 </body>
