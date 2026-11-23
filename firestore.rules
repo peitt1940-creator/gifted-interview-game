@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isTeacher() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/teachers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data.pw == '教師密碼（只填在 Firebase）';
+    }
+
+    // 教師裝置登記：只能寫自己的 uid，而且密碼要對
+    match /teachers/{uid} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pw'])
+        && request.resource.data.pw == '教師密碼（只填在 Firebase）';
+    }
+
+    // 目前課堂代碼：只有教師
+    match /state/{doc} {
+      allow read, write: if isTeacher();
+    }
+
+    // 課堂：學生可讀（看公布狀態），只有教師能建立、公布、刪除
+    match /sessions/{sid} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+
+      // 各組資料：學生只能新增／更新 1～4 組；公布後其他組才讀得到
+      match /groups/{g} {
+        allow read: if isTeacher()
+          || (signedIn() && get(/databases/$(database)/documents/sessions/$(sid)).data.get('publish', {}).get(g, false) == true);
+        allow create, update: if signedIn()
+          && g in ['1', '2', '3', '4']
+          && exists(/databases/$(database)/documents/sessions/$(sid))
+          && request.resource.data.keys().hasOnly(['data', 'updatedAt'])
+          && request.resource.data.data is string
+          && request.resource.data.data.size() < 40000
+          && request.resource.data.updatedAt is number;
+        allow delete: if isTeacher();
+      }
+    }
+  }
+}

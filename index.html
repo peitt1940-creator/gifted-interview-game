@@ -2606,65 +2606,79 @@ const SOURCES = {
 
 </script>
 <script>
-// ===== 連線積木：Firebase（?fake=1 時改用本機模擬，供測試） =====
+// ===== 連線積木：Firebase Firestore（?fake=1 時改用本機模擬，供測試） =====
 const FB_CONFIG = {
   apiKey: 'AIzaSyDMj042zPvy-EyzsbChDrmJp6HIpA-QODA',
   authDomain: 'gifted-interview-game.firebaseapp.com',
-  databaseURL: 'https://gifted-interview-game-default-rtdb.asia-southeast1.firebasedatabase.app',
   projectId: 'gifted-interview-game',
   appId: '1:725778566175:web:647f85bf14e2e9c912d92a',
   messagingSenderId: '725778566175'
 };
 const FB_VER = '10.14.1';
+const GROUP_IDS = ['1', '2', '3', '4'];
 
 async function cloudInit(){
   if (new URLSearchParams(location.search).get('fake') === '1') return fakeCloud();
   const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
-  const [{ initializeApp }, A, D] = await Promise.all([
-    import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-database.js')
+  const [{ initializeApp }, A, F] = await Promise.all([
+    import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')
   ]);
   const app = initializeApp(FB_CONFIG);
-  const auth = A.getAuth(app), db = D.getDatabase(app);
+  const auth = A.getAuth(app), db = F.getFirestore(app);
+  const d = (...p) => F.doc(db, ...p);
+  const uid = () => auth.currentUser && auth.currentUser.uid;
   return {
-    onAuth: cb => A.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid, email: u.email || '', anon: u.isAnonymous } : null)),
+    onAuth: cb => A.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid } : null)),
     anon: () => A.signInAnonymously(auth),
-    uid: () => auth.currentUser && auth.currentUser.uid,
-    set: (p, v) => D.set(D.ref(db, p), v),
-    update: (p, v) => D.update(D.ref(db, p), v),
-    remove: p => D.remove(D.ref(db, p)),
-    get: p => D.get(D.ref(db, p)).then(s => s.val()),
-    on: (p, cb) => D.onValue(D.ref(db, p), s => cb(s.val()), e => cb(null, e)),
-    onConn: cb => D.onValue(D.ref(db, '.info/connected'), s => cb(!!s.val()))
+    uid,
+    isTeacher: () => F.getDoc(d('teachers', uid())).then(s => s.exists()).catch(() => false),
+    teacherLogin: pw => F.setDoc(d('teachers', uid()), { pw }),
+    teacherLogout: () => F.deleteDoc(d('teachers', uid())),
+    onCurrent: cb => F.onSnapshot(d('state', 'current'), s => cb(s.exists() ? (s.data().sid || null) : null), () => cb(null)),
+    setCurrent: sid => F.setDoc(d('state', 'current'), { sid: sid || null }),
+    createSession: sid => F.setDoc(d('sessions', sid), { createdAt: Date.now(), publish: {} }),
+    onSession: (sid, cb) => F.onSnapshot(d('sessions', sid), s => cb(s.exists() ? (s.data().publish || {}) : null), () => cb(null)),
+    setPublish: (sid, g, on) => F.updateDoc(d('sessions', sid), { ['publish.' + g]: !!on }),
+    onGroups: (sid, cb) => F.onSnapshot(F.collection(db, 'sessions', sid, 'groups'), qs => { const m = {}; qs.forEach(x => m[x.id] = x.data()); cb(m); }, () => cb({})),
+    onGroup: (sid, g, cb) => F.onSnapshot(d('sessions', sid, 'groups', g), s => cb(s.exists() ? s.data() : null), () => cb(null)),
+    pushGroup: (sid, g, v) => F.setDoc(d('sessions', sid, 'groups', g), v),
+    deleteSession: async sid => { await Promise.all(GROUP_IDS.map(g => F.deleteDoc(d('sessions', sid, 'groups', g)))); await F.deleteDoc(d('sessions', sid)); }
   };
 }
 
 // 本機模擬雲端：同一瀏覽器的分頁共用 localStorage，用 storage 事件同步
 function fakeCloud(){
-  const K = 'fake-db';
+  const K = 'fake-db', FAKE_PW = 'test-pass'; // 只用於本機測試，真正的密碼只在 Firebase 安全規則裡
   const read = () => { try { return JSON.parse(localStorage.getItem(K)) || {}; } catch(e){ return {}; } };
-  const at = (o, p) => p.split('/').filter(Boolean).reduce((x, k) => x == null ? null : x[k], o) ?? null;
-  const put = (o, p, v) => { const ks = p.split('/').filter(Boolean); let x = o;
+  const at = (o, p) => p.split('/').reduce((x, k) => x == null ? null : x[k], o) ?? null;
+  const put = (o, p, v) => { const ks = p.split('/'); let x = o;
     ks.slice(0, -1).forEach(k => { if (typeof x[k] !== 'object' || !x[k]) x[k] = {}; x = x[k]; });
     if (v === null) delete x[ks[ks.length-1]]; else x[ks[ks.length-1]] = v; };
   const subs = [];
-  const fire = () => { const d = read(); subs.forEach(s => s.cb(JSON.parse(JSON.stringify(at(d, s.p))))); };
+  const fire = () => { const db = read(); subs.forEach(s => s.cb(JSON.parse(JSON.stringify(at(db, s.p))))); };
   window.addEventListener('storage', e => { if (e.key === K) fire(); });
-  const FAKE_PW = 'test-pass'; // 只用於本機測試，真正的密碼只在 Firebase 安全規則裡
-  const write = (f, p, v) => { if (p && /^teachers\//.test(p) && v !== null && v !== FAKE_PW) return Promise.reject(new Error('PERMISSION_DENIED'));
-    const d = read(); f(d); localStorage.setItem(K, JSON.stringify(d)); fire(); return Promise.resolve(); };
-  let user = null; const authSubs = [];
-  const setUser = u => { user = u; sessionStorage.setItem('fake-user', JSON.stringify(u)); authSubs.forEach(cb => cb(u)); };
-  try { user = JSON.parse(sessionStorage.getItem('fake-user')); } catch(e){}
+  const write = (p, v) => { const db = read(); put(db, p, v); localStorage.setItem(K, JSON.stringify(db)); fire(); return Promise.resolve(); };
+  const on = (p, cb) => { const s = { p, cb }; subs.push(s); setTimeout(() => cb(at(read(), p)), 0); return () => { const i = subs.indexOf(s); if (i >= 0) subs.splice(i, 1); }; };
+  let user = null; try { user = JSON.parse(sessionStorage.getItem('fake-user')); } catch(e){}
+  const authSubs = [];
+  const uid = () => user && user.uid;
+  const isT = () => at(read(), 'teachers/' + uid()) === FAKE_PW;
   return {
     onAuth: cb => { authSubs.push(cb); setTimeout(() => cb(user), 0); },
-    anon: () => { setUser({ uid: 'anon-' + Math.random().toString(36).slice(2, 8), email: '', anon: true }); return Promise.resolve(); },
-    uid: () => user && user.uid,
-    set: (p, v) => write(d => put(d, p, v), p, v),
-    update: (p, v) => write(d => Object.entries(v).forEach(([k, x]) => put(d, p + '/' + k, x))),
-    remove: p => write(d => put(d, p, null)),
-    get: p => Promise.resolve(at(read(), p)),
-    on: (p, cb) => { const s = { p, cb }; subs.push(s); setTimeout(() => cb(at(read(), p)), 0); return () => subs.splice(subs.indexOf(s), 1); },
-    onConn: cb => setTimeout(() => cb(true), 0)
+    anon: () => { user = { uid: 'anon-' + Math.random().toString(36).slice(2, 8) }; sessionStorage.setItem('fake-user', JSON.stringify(user)); authSubs.forEach(cb => cb(user)); return Promise.resolve(); },
+    uid,
+    isTeacher: () => Promise.resolve(isT()),
+    teacherLogin: pw => pw === FAKE_PW ? write('teachers/' + uid(), pw) : Promise.reject(new Error('permission-denied')),
+    teacherLogout: () => write('teachers/' + uid(), null),
+    onCurrent: cb => on('state/current', v => cb(v || null)),
+    setCurrent: sid => write('state/current', sid || null),
+    createSession: sid => write('sessions/' + sid + '/meta', { createdAt: Date.now() }),
+    onSession: (sid, cb) => on('sessions/' + sid, v => cb(v ? (v.publish || {}) : null)),
+    setPublish: (sid, g, onv) => write('sessions/' + sid + '/publish/' + g, !!onv),
+    onGroups: (sid, cb) => on('sessions/' + sid + '/groups', v => cb(v || {})),
+    onGroup: (sid, g, cb) => on('sessions/' + sid, v => cb(v && v.publish && v.publish[g] && v.groups ? (v.groups[g] || null) : null)),
+    pushGroup: (sid, g, v) => at(read(), 'sessions/' + sid) ? write('sessions/' + sid + '/groups/' + g, v) : Promise.reject(new Error('no session')),
+    deleteSession: sid => write('sessions/' + sid, null)
   };
 }
 
@@ -2728,7 +2742,7 @@ function teacherApp(){
     clearSubs();
     const who = document.getElementById('who');
     who.textContent = '檢查中…';
-    cloud.get('teachers/' + cloud.uid()).then(v => v ? board() : loginForm()).catch(() => loginForm());
+    cloud.isTeacher().then(v => v ? board() : loginForm()).catch(() => loginForm());
   }
   function loginForm(msg){
     document.getElementById('who').textContent = '未登入';
@@ -2740,25 +2754,25 @@ function teacherApp(){
     const inp = document.getElementById('tpw'); inp.focus();
     const go = () => { const pw = inp.value.trim(); if (!pw) return;
       document.getElementById('lmsg').textContent = '確認中…';
-      cloud.set('teachers/' + cloud.uid(), pw).then(() => route()).catch(() => loginForm('密碼不對，請再試一次。')); };
+      cloud.teacherLogin(pw).then(() => route()).catch(() => loginForm('密碼不對，請再試一次。')); };
     document.getElementById('login').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
   }
-  function logout(){ clearSubs(); cloud.remove('teachers/' + cloud.uid()).catch(() => {}).then(() => loginForm()); }
+  function logout(){ clearSubs(); cloud.teacherLogout().catch(() => {}).then(() => loginForm()); }
   function board(){
     document.getElementById('who').textContent = '👩‍🏫 教師';
-    unsub.push(cloud.on('current', v => { sid = v || null; subSession(); }));
+    unsub.push(cloud.onCurrent(v => { sid = v || null; subSession(); }));
   }
   function subSession(){
     unsub.slice(1).forEach(f => { try { f(); } catch(e){} }); unsub = unsub.slice(0, 1);
     groups = {}; publish = {};
     if (!sid){ draw(); return; }
-    unsub.push(cloud.on(`sessions/${sid}/groups`, v => { groups = {}; Object.entries(v || {}).forEach(([g, raw]) => groups[g] = { st: parseGroup(raw), at: raw && raw.updatedAt }); draw(); }));
-    unsub.push(cloud.on(`sessions/${sid}/publish`, v => { publish = v || {}; draw(); }));
+    unsub.push(cloud.onGroups(sid, v => { groups = {}; Object.entries(v || {}).forEach(([g, raw]) => groups[g] = { st: parseGroup(raw), at: raw && raw.updatedAt }); draw(); }));
+    unsub.push(cloud.onSession(sid, v => { publish = v || {}; draw(); }));
     draw();
   }
   function newSession(){
     const id = new Date().toISOString().slice(5,10).replace('-','') + '-' + Math.random().toString(36).slice(2, 6);
-    cloud.set(`sessions/${id}/meta`, { createdAt: Date.now() }).then(() => cloud.set('current', id));
+    cloud.createSession(id).then(() => cloud.setCurrent(id));
   }
   function confirmBox(title, msg, okText, fn){
     const o = document.createElement('div'); o.className = 'overlay';
@@ -2810,11 +2824,11 @@ function teacherApp(){
       </div>
       <div class="foot"><button class="btn ghost small" id="ns">開新的一堂課</button><button class="btn small" id="del" style="background:var(--warn)">清除這堂課</button></div>
       <div class="foot"><span></span><button class="linkbtn" id="lo">登出</button></div>`;
-    tw.querySelectorAll('.pubt').forEach(c => c.onchange = () => cloud.set(`sessions/${sid}/publish/${c.dataset.g}`, c.checked ? true : null));
+    tw.querySelectorAll('.pubt').forEach(c => c.onchange = () => cloud.setPublish(sid, c.dataset.g, c.checked));
     tw.querySelectorAll('.look').forEach(b => b.onclick = () => look(b.dataset.g));
     document.getElementById('tq').onclick = () => { showQR = !showQR; draw(); };
     document.getElementById('ns').onclick = () => confirmBox('開新的一堂課？', '會產生新的 QR code，各組平板要重新掃描。這堂課的資料會留著，要刪除請按「清除這堂課」。', '開新課', newSession);
-    document.getElementById('del').onclick = () => confirmBox('清除這堂課？', `代碼 ${esc(sid)} 的四組紀錄會從雲端全部刪除，無法復原。`, '確定清除', () => cloud.remove(`sessions/${sid}`).then(() => cloud.set('current', null)));
+    document.getElementById('del').onclick = () => confirmBox('清除這堂課？', `代碼 ${esc(sid)} 的四組紀錄會從雲端全部刪除，無法復原。`, '確定清除', () => cloud.deleteSession(sid).then(() => cloud.setCurrent(null)));
     document.getElementById('lo').onclick = logout;
     timerUI();
   }
@@ -2849,7 +2863,7 @@ function groupApp(g){
   function pushNow(){
     if (!cloudOk) return;
     const slim = { startAt: S.startAt, endAt: S.endAt, notes: S.notes, piles: S.piles, concl: S.concl, sel: S.sel || {}, view: S.view };
-    cloud.set(`sessions/${SID}/groups/${g}`, { data: JSON.stringify(slim), updatedAt: Date.now() })
+    cloud.pushGroup(SID, String(g), { data: JSON.stringify(slim), updatedAt: Date.now() })
       .then(() => { syncState = 'ok'; paintSync(); }).catch(() => { syncState = 'err'; paintSync(); });
   }
   function paintSync(){ const el = document.getElementById('sync'); if (!el) return;
@@ -2859,9 +2873,9 @@ function groupApp(g){
     cloudInit().then(c => { cloud = c;
       c.onAuth(u => { if (!u){ c.anon().catch(() => { syncState = 'err'; paintSync(); }); return; }
         if (cloudOk) return; cloudOk = true; pushNow();
-        c.on(`sessions/${SID}/publish`, v => { const before = othersList().length; pub = v || {};
+        c.onSession(SID, v => { const before = othersList().length; pub = v || {};
           Object.keys(otherSubs).forEach(k => { if (!pub[k]){ otherSubs[k](); delete otherSubs[k]; delete others[k]; } });
-          othersList().forEach(k => { if (!otherSubs[k]) otherSubs[k] = c.on(`sessions/${SID}/groups/${k}`, raw => { others[k] = parseGroup(raw); if (S.view === 'others') render(); }); });
+          othersList().forEach(k => { if (!otherSubs[k]) otherSubs[k] = c.onGroup(SID, k, raw => { others[k] = parseGroup(raw); if (S.view === 'others') render(); }); });
           if (othersList().length > before) toast('👀 老師公布了其他組的歸納牆');
           paintOthersBtn(); if (S.view === 'others') render(); });
       });

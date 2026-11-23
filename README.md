@@ -7,6 +7,6 @@
   - 即時看各組採訪進度、便利貼張數、分堆數、結論
   - 公布／收回各組歸納牆；清除這堂課
 - 各組頁：`index.html?g=1&s=課堂代碼`～`?g=4`（家長／低年級學生／中高年級學生／社會人士），匿名登入、只寫自己那組
-- 資料庫：Firebase Realtime Database（專案 gifted-interview-game），安全規則範本見 `database.rules.json`（密碼已遮蔽）
+- 資料庫：Firebase Firestore（專案 gifted-interview-game，機房 asia-east1 臺灣），安全規則範本見 `firestore.rules`（密碼已遮蔽）
 - 沒有 `s` 參數時為單機模式（資料只存在平板，教師密碼清除）
-- 版本：v5（2026-11-24）：教師改用密碼登入
+- 版本：v6（2026-11-24）：資料庫改用 Firestore，教師密碼登入
